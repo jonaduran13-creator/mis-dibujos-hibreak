@@ -385,6 +385,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         TextView invitation = new TextView(this);
         invitation.setText("¿Qué vamos a crear hoy?"); invitation.setTextColor(Color.BLACK); invitation.setTextSize(18);
         invitation.setPadding(dp(24),0,0,dp(4));welcome.addView(invitation);
+        header.addView(new BatteryView(this)); // el kiosco oculta la barra de estado: aquí se ve la batería
         screen.addView(header);
         int[] icons={ToolButton.PENCIL,ToolButton.CAMERA,ToolButton.PIANO};
         String[] names={"Dibujar","Fotos","Piano"};

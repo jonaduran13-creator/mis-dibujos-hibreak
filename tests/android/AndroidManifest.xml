@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="mx.dibujos.editchecks">
+    <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="30" />
+    <application android:testOnly="true" android:label="Pruebas de edición" />
+    <instrumentation android:name="mx.dibujos.kiosko.EditChecks" android:targetPackage="mx.dibujos.editchecks" />
+</manifest>

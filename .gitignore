@@ -1,0 +1,12 @@
+# Compilados y generados
+build/
+tests/algorithm-tests/
+tests/android/build/
+tools/idioma/*.dex
+
+# Llave de firma y su contraseña: NUNCA al repositorio.
+# Quien tenga la llave puede firmar actualizaciones para un aparato donde la app es device owner.
+keystore/
+*.keystore
+*.jks
+keystore.properties

@@ -95,6 +95,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         dpm = getSystemService(DevicePolicyManager.class);
         admin = AdminReceiver.component(this);
         Sounds.init();
+        ShapeSnap.warmUp();
         handlePinExtra(getIntent());
         setupKiosk();
         mandala=prefs.getBoolean("mandala",false);
@@ -211,6 +212,12 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         if (!fromAdb()) {
             android.util.Log.w("MisDibujos", "Órdenes ignoradas: no vienen de adb (" + getReferrer() + ")");
             return;
+        }
+        // Si la app quedó instalada en un aparato equivocado como administradora (no dueña),
+        // Android no deja desinstalarla: esta orden le quita ese permiso para poder hacerlo.
+        if (i.getBooleanExtra("quitarAdmin", false) && !isOwner() && dpm != null && dpm.isAdminActive(admin)) {
+            dpm.removeActiveAdmin(admin);
+            android.util.Log.i("MisDibujos", "Permiso de administrador quitado; ya se puede desinstalar");
         }
         String childName = i.getStringExtra("childName");
         if (childName != null) {

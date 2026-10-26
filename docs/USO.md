@@ -10,7 +10,10 @@ La actualización conserva la firma y el modo kiosco. No requiere internet.
   posiciones simétricas. Se activa y desactiva con la flor; los dibujos se guardan
   en la misma carpeta de siempre. Sus guías punteadas no se guardan en la imagen.
 - Figuras: el reconocimiento intenta corregir al levantar el dedo o tras una
-  pausa de 350 ms. Acepta trazos temblorosos y círculos que no cierran del todo.
+  pausa de 350 ms. Reconoce línea, círculo, óvalo, triángulo, rectángulo, rombo,
+  pentágono, hexágono, corazón, estrella (de contorno o de un trazo) y luna, aunque
+  estén temblorosos, algo inclinados o se pasen del punto de inicio. Si un dibujo
+  libre no se parece claramente a una figura, se deja como está.
   Deshacer permite quitar una corrección que no te guste. El historial compartido conserva hasta cuarenta estados al entrar o salir de Mandala.
 - Piano: una octava, dos dedos, Piano, Campanas, Órgano, Flauta y Cuerdas.
   Cada sonido tiene su icono. Se silencia al salir, al dormir o al perder el foco de audio.

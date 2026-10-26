@@ -168,3 +168,19 @@ Dibujos: `Pictures/Dibujos/*.png`. Fotos: `Pictures/Fotos/*.jpg` (MediaStore).
   (`app_process` como shell; la app no tiene permiso CHANGE_CONFIGURATION).
 - 72 paquetes desinstalados para el usuario 0: lista en `tools/apps-quitadas.txt`;
   `tools/restaurar-apps.ps1` los reinstala (o `-Quitar` para volver a quitarlos).
+
+## Versión 2.0 (versionCode 34) — figuras
+
+- `ShapeSnap.classify` genera cada candidata (óvalo, polígono por esquinas, y plantillas: corazón,
+  estrella, estrella de un trazo, rombo, luna ×2) y la califica con distancia simétrica trazo↔figura
+  (mitad promedio, mitad percentil 90) / diagonal. Acepta si < 0.036, o si < 0.08 y < 0.6 × la mejor
+  de otra familia (no aplica a círculo/óvalo). Reglas extra: hexágono/pentágono ganan al círculo hasta
+  ×1.3; heptágono/octágono solo si ajustan 20% mejor que el círculo.
+- Calibrado con un banco sintético (figuras y dibujos libres con temblor, giro ±15°, inicio y sentido
+  al azar): ~97% aciertos y ~1% falsos con poco temblor; ~85% / ~1% con temblor medio.
+- En el HiBreak tarda ~18 ms por trazo (antes de optimizar: 137 ms). `ShapeSnap.warmUp()` en
+  `onCreate` prepara las plantillas en segundo plano para que el primer trazo no se trabe.
+- `XrzLienzo.trySnap` registra en logcat (`MisDibujosXrz`) la figura detectada y el tiempo.
+- `tools/comun.ps1` NUNCA elige solo un aparato por Wi-Fi (una vez instaló la app en una tele de la
+  casa); si pasa, `--ez quitarAdmin true` (solo adb, solo si no es dueña) le quita el permiso de
+  administrador para poder desinstalarla.

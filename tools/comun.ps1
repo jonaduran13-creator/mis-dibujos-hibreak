@@ -23,10 +23,12 @@ function Get-AdbArgs([string]$Serial) {
     if (-not $Serial) {
         $all = @(& $Adb devices | Select-Object -Skip 1 | Where-Object { $_ -match '\tdevice$' } | ForEach-Object { ($_ -split "`t")[0] })
         $usb = @($all | Where-Object { $_ -notmatch ':' })
-        if ($usb.Count -eq 1) { $Serial = $usb[0] }
-        elseif ($all.Count -gt 1) { throw "Hay varios aparatos ($($all -join ', ')): usa -Serial o ANDROID_SERIAL" }
+        # Nunca se elige solo un aparato por Wi-Fi: podría ser otro equipo de la casa (una tele).
+        if ($usb.Count -eq 0) { throw "No hay ningún aparato conectado por cable (adb ve: $($all -join ', ')). Conecta el teléfono o usa -Serial." }
+        if ($usb.Count -gt 1) { throw "Hay varios aparatos por cable ($($usb -join ', ')): usa -Serial o ANDROID_SERIAL" }
+        $Serial = $usb[0]
     }
-    if ($Serial) { return @("-s", $Serial) } else { return @() }
+    return @("-s", $Serial)
 }
 
 # Llave de firma. Como la app es device owner, TODA actualización de un aparato debe firmarse

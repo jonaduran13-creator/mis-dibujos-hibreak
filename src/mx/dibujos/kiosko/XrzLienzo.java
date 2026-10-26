@@ -342,8 +342,12 @@ public class XrzLienzo implements Lienzo {
     /** Si el trazo parece una línea o figura, se cambia por la versión perfecta. */
     private void trySnap() {
         if (!assisted || !drawing || erasing) return;
-        final List<PointF> shape = ShapeSnap.recognize(points);
-        if (shape == null) return;
+        long started = android.os.SystemClock.uptimeMillis();
+        ShapeSnap.Result found = ShapeSnap.classify(points);
+        Log.i(TAG, "figura: " + (found == null ? "ninguna" : found.kind) + " (" + points.size() + " puntos, "
+                + (android.os.SystemClock.uptimeMillis() - started) + " ms)");
+        if (found == null) return;
+        final List<PointF> shape = found.points;
         snapped = true;
         replacing = true;
         feedUp();

@@ -15,8 +15,10 @@ engine for near real-time finger drawing. Spanish UI.*
 - **Dibujar** con el dedo casi en tiempo real: usa el motor de escritura rápida que Bigme trae
   en el sistema (`/system/framework/handwritten.jar`), alimentado a mano con los toques del dedo.
 - Tres grosores, goma, deshacer (40 pasos), hojas nuevas, galería de dibujos editables.
-- **Figuras perfectas**: si el trazo parece línea, círculo, óvalo, triángulo, rectángulo,
-  pentágono o hexágono, se corrige (se puede apagar: Asistido / Libre).
+- **Figuras perfectas**: si el trazo parece línea (se endereza a 0°, 45° o 90°), círculo, óvalo,
+  triángulo (con ángulo recto o isósceles si casi lo es), rectángulo, rombo, pentágono, hexágono,
+  **corazón**, **estrella** (de contorno o de un solo trazo) o **luna**, se corrige. Si hay duda,
+  el dibujo se queda como está (se puede apagar: Asistido / Libre).
 - **Mandala**: cada trazo se repite 12 veces en simetría.
 - **Fotos** con la cámara selfie o trasera, filtros (Ojotes, Globo, Espejo, Invertido) y
   "pintar sobre la foto" como hoja para colorear (contornos).

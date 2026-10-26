@@ -117,6 +117,12 @@ public class AlgorithmChecks {
   for(int k=0;k<4000;k++){float[] o=m.slide(bx,by,bx+(rnd.nextFloat()-.5f)*m.cell*.6f,by+(rnd.nextFloat()-.5f)*m.cell*.6f,rad);
    int c0=m.col(bx),r0=m.row(by),c1=m.col(o[0]),r1=m.row(o[1]);safe&=m.inside(c1,r1)&&(c0==c1&&r0==r1||m.open(c0,r0,c1,r1)||(Math.abs(c1-c0)+Math.abs(r1-r0)==2&&((m.open(c0,r0,c1,r0)&&m.open(c1,r0,c1,r1))||(m.open(c0,r0,c0,r1)&&m.open(c0,r1,c1,r1)))));bx=o[0];by=o[1];}
   require(safe,"canica: no atraviesa paredes");
+  // Inclinación desde el acelerómetro: orientación, respuesta y rechazo de temblores.
+  for(int rot=0;rot<4;rot++){Tilt t=new Tilt();t.update(2,3,rot,.02f);float[][] expected={{-2,3},{3,2},{2,-3},{-3,-2}};require(Math.abs(t.x()-expected[rot][0])<.001&&Math.abs(t.y()-expected[rot][1])<.001,"canica: ejes del acelerómetro en giro "+rot);}
+  Tilt flat=new Tilt();flat.update(0,0,1,.02f);for(int k=0;k<50;k++)flat.update(0,3,1,.02f);require(flat.x()>2.9f&&Math.abs(flat.y())<.001,"canica: una inclinación real mueve aunque el sensor virtual dé cero");
+  Tilt noise=new Tilt();noise.update(0,0,1,.02f);for(int k=0;k<100;k++)noise.update(k%2==0?.5f:-.5f,0,1,.02f);require(Math.abs(noise.y())<.1f,"canica: filtra el temblor de la mano");
+  Tilt fast=new Tilt(),slow=new Tilt();fast.update(0,0,1,.01f);slow.update(0,0,1,.02f);for(int k=0;k<20;k++)fast.update(3,0,1,.01f);for(int k=0;k<10;k++)slow.update(3,0,1,.02f);require(Math.abs(fast.y()-slow.y())<.001f,"canica: respuesta independiente de frecuencia del sensor");
+  float before=flat.x();flat.update(Float.NaN,0,1,.02f);require(Float.isFinite(flat.x())&&flat.x()==before,"canica: ignora lectura dañada");
   // Agitar
   Shake sh=new Shake();sh.feed(0,0,9.8f,0);boolean shook=false;for(int k=1;k<=6;k++)shook|=sh.feed(k%2==0?16:-16,0,9.8f,k*150);require(shook,"agitar: tres sacudidas se reconocen");
   Shake calm=new Shake();calm.feed(0,0,9.8f,0);boolean moved=false;for(int k=1;k<200;k++)moved|=calm.feed((float)Math.sin(k*.05)*9.8f,0,(float)Math.cos(k*.05)*9.8f,k*20);require(!moved,"agitar: girar despacio no cuenta");
@@ -126,7 +132,7 @@ public class AlgorithmChecks {
 }
 for name,content in files.items():
  p=out/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(content,encoding='utf-8')
-sources=list(out.rglob('*.java'))+[project/'src/mx/dibujos/kiosko/ShapeSnap.java',project/'src/mx/dibujos/kiosko/FunFilters.java',project/'src/mx/dibujos/kiosko/DrawingHistory.java',project/'src/mx/dibujos/kiosko/Stamps.java',project/'src/mx/dibujos/kiosko/Recording.java',project/'src/mx/dibujos/kiosko/Maze.java',project/'src/mx/dibujos/kiosko/Shake.java']
+sources=list(out.rglob('*.java'))+[project/'src/mx/dibujos/kiosko/ShapeSnap.java',project/'src/mx/dibujos/kiosko/FunFilters.java',project/'src/mx/dibujos/kiosko/DrawingHistory.java',project/'src/mx/dibujos/kiosko/Stamps.java',project/'src/mx/dibujos/kiosko/Recording.java',project/'src/mx/dibujos/kiosko/Maze.java',project/'src/mx/dibujos/kiosko/Shake.java',project/'src/mx/dibujos/kiosko/Tilt.java']
 jdk=next(Path('C:/tmp/hb').glob('jdk-17*'))/'bin'
 subprocess.run([str(jdk/'javac.exe'),'-encoding','UTF-8','-d',str(out/'classes')]+[str(p) for p in sources],check=True)
 subprocess.run([str(jdk/'java.exe'),'-cp',str(out/'classes'),'mx.dibujos.kiosko.AlgorithmChecks'],check=True)

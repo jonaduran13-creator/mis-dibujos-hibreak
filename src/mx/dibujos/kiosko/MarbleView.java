@@ -15,7 +15,7 @@ import android.view.Surface;
 import android.view.View;
 
 /**
- * Canica que rueda por el laberinto inclinando el aparato (sensor de gravedad).
+ * Canica que rueda por el laberinto inclinando el aparato (acelerómetro filtrado).
  * Se pinta en modo A2 de la tinta, el más rápido, y solo se repinta el cuadrito
  * alrededor de la canica; al salir se hace una limpieza completa.
  */
@@ -32,6 +32,9 @@ final class MarbleView extends View implements SensorEventListener {
     private final Paint paint = new Paint();
     private final Rect dirty = new Rect();
     private float x, y, vx, vy, gx, gy;
+    private final Tilt tilt=new Tilt();
+    private long sensorTime;
+    private int samples;
     private long last;
     private long lastBump;
     private boolean goal;
@@ -52,9 +55,12 @@ final class MarbleView extends View implements SensorEventListener {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        Sensor s = sensors == null ? null : sensors.getDefaultSensor(Sensor.TYPE_GRAVITY);
-        if (s == null && sensors != null) s = sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        if (s != null) sensors.registerListener(this, s, SensorManager.SENSOR_DELAY_GAME);
+        // El sensor virtual GRAVITY existe en el HiBreak, pero devuelve ceros.
+        Sensor s=sensors==null?null:sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        boolean registered=s!=null&&sensors.registerListener(this,s,SensorManager.SENSOR_DELAY_GAME);
+        setContentDescription(registered?"Canica: inclina suavemente para mover":"No se pudo activar el sensor de movimiento");
+        android.util.Log.i("MisDibujosCanica","Acelerómetro activo="+registered);
+        sensorTime=0;samples=0;
         last = SystemClock.uptimeMillis();
         post(step);
     }
@@ -69,14 +75,14 @@ final class MarbleView extends View implements SensorEventListener {
     /** Del sensor (ejes del aparato en vertical) a los ejes de la pantalla girada. */
     @Override
     public void onSensorChanged(SensorEvent e) {
-        float ax = e.values[0], ay = e.values[1];
-        int rot = getDisplay() == null ? Surface.ROTATION_90 : getDisplay().getRotation();
-        switch (rot) {
-            case Surface.ROTATION_90: gx = ay; gy = ax; break;
-            case Surface.ROTATION_180: gx = ax; gy = -ay; break;
-            case Surface.ROTATION_270: gx = -ay; gy = -ax; break;
-            default: gx = -ax; gy = ay;
-        }
+        float seconds=sensorTime==0?.02f:(e.timestamp-sensorTime)/1_000_000_000f;
+        sensorTime=e.timestamp;
+        int rot=getDisplay()==null?Surface.ROTATION_90:getDisplay().getRotation();
+        tilt.update(e.values[0],e.values[1],rot,seconds);
+        gx=tilt.x();gy=tilt.y();
+        if(++samples==1||samples==100||samples==250)
+            android.util.Log.i("MisDibujosCanica","Inclinación="+gx+","+gy+" posición="+x+","+y);
+
     }
 
     @Override public void onAccuracyChanged(Sensor s, int a) {}
@@ -89,7 +95,7 @@ final class MarbleView extends View implements SensorEventListener {
             last = now;
             // Inclinar poco no mueve (la mano tiembla); luego acelera según la inclinación.
             float k = maze.cell * 2.2f;
-            float ax = Math.abs(gx) < .6f ? 0 : gx, ay = Math.abs(gy) < .6f ? 0 : gy;
+            float ax = Math.abs(gx) < .4f ? 0 : gx, ay = Math.abs(gy) < .4f ? 0 : gy;
             vx = (vx + ax * k * dt) * .985f;
             vy = (vy + ay * k * dt) * .985f;
             float max = maze.cell * 6;

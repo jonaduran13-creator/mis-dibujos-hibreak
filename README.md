@@ -26,7 +26,7 @@ engine for near real-time finger drawing. Spanish UI.*
 - **Mandala**: cada trazo se repite 12 veces en simetría.
 - **Película**: vuelve a dibujar la hoja trazo por trazo, con tinta real (máx. 25 s). Se guarda con el dibujo.
 - **Dibujo musical**: cada trazo suena según su altura, en escala pentatónica (botón Música).
-- **Laberintos** desde el inicio: se recorren dibujando (el trazo se detiene en las paredes) o con
+- **Juegos → Laberinto / Canica** desde el inicio: se recorren dibujando (el trazo se detiene en las paredes) o con
   una **canica** que rueda inclinando el aparato. Crecen de tamaño al ganar.
 - **Agitar** el aparato ofrece una hoja nueva (la anterior queda guardada).
 - **Presión con el dedo**: si el panel reporta el tamaño del dedo, apoyarlo más hace la línea más gruesa

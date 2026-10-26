@@ -23,10 +23,17 @@ public class ToolButton extends View {
     /** Punta de cada tipo de Lienzo.BRUSH_*, en orden. */
     public static final int[] TIPS={TIP_PEN,TIP_PENCIL,TIP_BRUSH,TIP_DASH};
 
+    private static final android.graphics.Typeface LABEL_FACE=android.graphics.Typeface.create("sans-serif-medium",0);
+    private String label;
+    private String label(){return label==null?LABELS[icon]:label;}
+    public void setLabel(String value){label=value;setContentDescription(label());invalidate();}
     private int icon;
     public void setIcon(int value){icon=value;setContentDescription(LABELS[icon]);invalidate();}
     private boolean selected;
     private boolean bare;
+    private boolean quiet;
+    /** En barras compactas el grupo tiene borde, no cada herramienta. */
+    public void setQuiet(boolean value) { quiet=value; invalidate(); }
     public void setBare(boolean value) { bare=value; invalidate(); }
     private static final String[] LABELS={"Fino","Medio","Grueso","Goma","Deshacer","Nueva","Dibujos","Volver","Fotos","Tomar foto","Cámara","Inicio","Dibujar","Piano","Dormir","Rotar","Mandala","Campanas","Órgano","Flauta","Cuerdas","Normal","Ojotes","Globo","Espejo","Invertido","Contornos","Foto clara","Otra foto","Asistido","Libre","Linterna",
         "Lápiz","Grafito","Pincel","Puntos","Sellos",
@@ -76,25 +83,40 @@ public class ToolButton extends View {
 
     @Override
     protected void onDraw(Canvas c) {
-        p.setAlpha(isEnabled()?255:90);
+        p.setAlpha(255);
         int w = getWidth(), h = getHeight();
         float density=getResources().getDisplayMetrics().density;
         boolean label=!bare && h>=47*density;
-        float area=label?h-19*density:h;
-        float cx = w / 2f, cy = area / 2f, u = Math.min(w, area) / 11f;
+        boolean horizontal=label && w>=h*2.15f;
+        float area=label&&!horizontal?h-20*density:h;
+        float u=Math.min(44*density,Math.min(horizontal?h*.72f:w,area))/11f;
+        float cx=horizontal?28*density:w/2f, cy=area/2f;
         boolean dark = selected != isPressed();
-        int fg = dark ? Color.WHITE : Color.BLACK;
-
+        int fg = dark ? Color.WHITE : isEnabled()?Color.BLACK:0xff666666;
         p.setStyle(Paint.Style.FILL);
         p.setColor(dark ? Color.BLACK : Color.WHITE);
-        r.set(u * 0.4f, u * 0.4f, w - u * 0.4f, h - u * 0.4f);
-        if (!bare) c.drawRoundRect(r, u, u, p);
-        p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(u * 0.35f);
-        p.setColor(Color.BLACK);
-        if (!bare) c.drawRoundRect(r, u, u, p);
-
-        if(label){p.setStyle(Paint.Style.FILL);p.setColor(fg);p.setTextAlign(Paint.Align.CENTER);p.setTypeface(android.graphics.Typeface.create("sans-serif-medium",0));p.setTextSize(10*density);c.drawText(LABELS[icon],cx,h-8*density,p);}
+        r.set(3*density,3*density,w-3*density,h-3*density);
+        if (!bare) c.drawRoundRect(r,10*density,10*density,p);
+        if (!bare && (!quiet || dark || isFocused())) {
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.4f*density);
+            p.setColor(isEnabled()?Color.BLACK:0xff666666);
+            c.drawRoundRect(r,10*density,10*density,p);
+        }
+        if(!bare && isFocused()) {
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(density);p.setColor(fg);
+            r.inset(3*density,3*density);c.drawRoundRect(r,7*density,7*density,p);
+        }
+        if(label){
+            p.setStyle(Paint.Style.FILL);p.setColor(fg);
+            p.setTypeface(LABEL_FACE);
+            p.setTextSize((horizontal?14:11)*density);
+            float room=horizontal?w-60*density:w-6*density;
+            float measured=p.measureText(label());
+            if(measured>room)p.setTextSize(p.getTextSize()*room/measured);
+            p.setTextAlign(horizontal?Paint.Align.LEFT:Paint.Align.CENTER);
+            float baseline=horizontal?h/2f-(p.ascent()+p.descent())/2f:h-9*density;
+            c.drawText(label(),horizontal?53*density:cx,baseline,p);
+        }
         p.setColor(fg);
         if(icon>=STAMP_FIRST&&icon<STAMP_FIRST+Stamps.COUNT){drawStamp(c,icon-STAMP_FIRST,cx,cy,u*3.3f,u*.4f);return;}
         switch (icon) {
@@ -245,8 +267,12 @@ public class ToolButton extends View {
                 c.drawLine(cx - u * 0.6f, cy - u * 1.6f, cx - u * 0.6f, cy + u * 1.6f, p);
                 break;
             }
-            case UNDO:
             case BACK: {
+                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(u*.5f);
+                c.drawLine(cx-u*3,cy,cx+u*3,cy,p);
+                path.reset();path.moveTo(cx-u*.5f,cy-u*2.5f);path.lineTo(cx-u*3,cy);path.lineTo(cx-u*.5f,cy+u*2.5f);c.drawPath(path,p);break;
+            }
+            case UNDO: {
                 p.setStyle(Paint.Style.STROKE);
                 p.setStrokeWidth(u * 0.6f);
                 r.set(cx - u * 2.2f, cy - u * 2f, cx + u * 2.6f, cy + u * 2.6f);
@@ -351,17 +377,22 @@ public class ToolButton extends View {
                 break;
             }
             case GALLERY: {
-                p.setStyle(Paint.Style.FILL);
+                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(u*.35f);
                 float s = u * 1.6f, g = u * 0.4f;
                 for (int i = 0; i < 2; i++)
                     for (int j = 0; j < 2; j++) {
                         float x = cx - s - g / 2 + i * (s + g);
                         float y = cy - s - g / 2 + j * (s + g);
-                        c.drawRect(x, y, x + s, y + s, p);
+                        c.drawRoundRect(x,y,x+s,y+s,u*.2f,u*.2f,p);
                     }
                 break;
             }
         }
+    }
+
+    @Override public void onInitializeAccessibilityNodeInfo(android.view.accessibility.AccessibilityNodeInfo info){
+        super.onInitializeAccessibilityNodeInfo(info);
+        info.setClassName(android.widget.Button.class.getName());info.setSelected(selected);
     }
 
     /** Dibuja un sello en miniatura (botones de sellos). */

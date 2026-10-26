@@ -5,7 +5,7 @@ import android.graphics.*;
 import android.view.*;
 import android.widget.*;
 
-/** Teclado de una octava, dos dedos y tres sonidos. La tinta solo cambia al tocar. */
+/** Teclado de una octava, dos dedos y cinco sonidos. La tinta solo cambia al tocar. */
 final class PianoMode extends LinearLayout {
     private PianoAudio audio;
     private Keys keys;
@@ -20,11 +20,11 @@ final class PianoMode extends LinearLayout {
         LinearLayout header = new LinearLayout(a); header.setGravity(Gravity.CENTER_VERTICAL);
         ToolButton back = new ToolButton(a, ToolButton.HOME);
         back.setOnClickListener(v -> home.run());
-        header.addView(back, new LayoutParams(dp(52), dp(48)));
-        TextView title = text("Mi pianito", 28); title.setTypeface(null, Typeface.BOLD);
+        header.addView(back, new LayoutParams(dp(60), dp(56)));
+        TextView title = text("Mi pianito", 26); title.setTypeface(null, Typeface.BOLD);
         title.setPadding(dp(12), 0, 0, 0); header.addView(title,new LayoutParams(0,-2,1));
         addView(header);
-        TextView hint = text("Toca y descubre los sonidos", 17); hint.setGravity(Gravity.CENTER);
+        TextView hint = text("Elige un sonido y toca", 15); hint.setGravity(Gravity.CENTER);
         hint.setPadding(dp(8),0,0,0); header.addView(hint);
         header.addView(Linterna.button(a), new LayoutParams(dp(72), dp(56)));
         LinearLayout sounds = new LinearLayout(a);
@@ -33,7 +33,7 @@ final class PianoMode extends LinearLayout {
         for (int i=0;i<names.length;i++) {
             final int id=i;
             ToolButton b = new ToolButton(a,icons[i]);
-            LayoutParams soundLayout=new LayoutParams(0,dp(64),1); if(i>0)soundLayout.leftMargin=dp(8);
+            LayoutParams soundLayout=new LayoutParams(0,dp(56),1); if(i>0)soundLayout.leftMargin=dp(8);
             b.setStateListAnimator(null); sounds.addView(b,soundLayout);
             b.setOnClickListener(v -> {
                 soundId=id;
@@ -79,7 +79,7 @@ final class PianoMode extends LinearLayout {
                 paint.setStyle(Paint.Style.STROKE);paint.setColor(Color.BLACK);paint.setStrokeWidth(dp(2));
                 c.drawRoundRect(i*w+2,2,(i+1)*w-2,h-2,8,8,paint);
                 paint.setStyle(Paint.Style.FILL);paint.setColor(down[white[i]]?Color.WHITE:Color.BLACK);
-                paint.setTextSize(dp(14));paint.setTextAlign(Paint.Align.CENTER);
+                paint.setTypeface(Typeface.create("sans-serif-medium",0));paint.setTextSize(dp(14));paint.setTextAlign(Paint.Align.CENTER);
                 c.drawText(new String[]{"Do","Re","Mi","Fa","Sol","La","Si","Do"}[i],(i+.5f)*w,h-dp(24),paint);
             }
             for(int i=0;i<5;i++){

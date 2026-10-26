@@ -54,6 +54,7 @@ public class GalleryPanel extends LinearLayout {
         t.setText(title);
         t.setTextColor(Color.BLACK);
         t.setTextSize(26);
+        t.setTypeface(null,android.graphics.Typeface.BOLD);
         t.setPadding(dp(12), 0, 0, 0);
         header.addView(t);
         addView(header, new LayoutParams(-1, dp(72)));
@@ -65,6 +66,7 @@ public class GalleryPanel extends LinearLayout {
         ScrollView scroll = new ScrollView(c);
         list = new LinearLayout(c);
         list.setOrientation(VERTICAL);
+        TextView loading=new TextView(c);loading.setText("Abriendo tu galería…");loading.setTextColor(Color.BLACK);loading.setTextSize(18);loading.setGravity(Gravity.CENTER);loading.setPadding(0,dp(24),0,dp(24));list.addView(loading);
         list.setPadding(dp(6), dp(6), dp(6), dp(6));
         scroll.addView(list);
         addView(scroll, new LayoutParams(-1, 0, 1f));
@@ -125,11 +127,12 @@ public class GalleryPanel extends LinearLayout {
             GradientDrawable frame = new GradientDrawable();
             frame.setColor(Color.WHITE);
             frame.setStroke(dp(2), Color.BLACK);
-            frame.setCornerRadius(dp(6));
+            frame.setCornerRadius(dp(10));
             iv.setBackground(frame);
             iv.setPadding(dp(4), dp(4), dp(4), dp(4));
             final Uri u = uris.get(i);
             iv.setContentDescription("Abrir imagen "+(i+1));
+            iv.setFocusable(true);
             io.execute(()->{
                 if(closed || generation!=page)return;
                 Bitmap thumb=null;
@@ -147,10 +150,12 @@ public class GalleryPanel extends LinearLayout {
         if(uris.size()>PAGE_SIZE){
             LinearLayout nav=new LinearLayout(getContext());
             android.widget.Button prev=new android.widget.Button(getContext());prev.setText("Anteriores");prev.setEnabled(page>0);
+            Ui.action(prev);
             prev.setOnClickListener(v->{page--;fill(uris,cb);});nav.addView(prev,new LayoutParams(0,dp(52),1));
             TextView position=new TextView(getContext());position.setText((page+1)+" / "+((uris.size()+PAGE_SIZE-1)/PAGE_SIZE));position.setTextColor(Color.BLACK);position.setGravity(Gravity.CENTER);
             nav.addView(position,new LayoutParams(0,dp(52),1));
             android.widget.Button next=new android.widget.Button(getContext());next.setText("Más imágenes");next.setEnabled(end<uris.size());
+            Ui.action(next);
             next.setOnClickListener(v->{page++;fill(uris,cb);});nav.addView(next,new LayoutParams(0,dp(52),1));list.addView(nav);
         }
     }

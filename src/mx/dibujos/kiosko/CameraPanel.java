@@ -72,9 +72,10 @@ public class CameraPanel extends FrameLayout implements TextureView.SurfaceTextu
         bar=new LinearLayout(context);bar.setOrientation(LinearLayout.VERTICAL);bar.setBackgroundColor(Color.WHITE);
         bar.setPadding(dp(4),dp(4),dp(4),dp(4));
         ToolButton back=new ToolButton(context,ToolButton.BACK),shutter=new ToolButton(context,ToolButton.SHUTTER),flip=new ToolButton(context,ToolButton.SWITCH);
-        bar.addView(back,new LinearLayout.LayoutParams(-1,0,1));bar.addView(shutter,new LinearLayout.LayoutParams(-1,0,1.5f));
+        bar.addView(back,new LinearLayout.LayoutParams(-1,0,1));shutter.setChosen(true);bar.addView(shutter,new LinearLayout.LayoutParams(-1,0,1.5f));
         bar.addView(flip,new LinearLayout.LayoutParams(-1,0,1));
         row.addView(bar,new LinearLayout.LayoutParams(dp(76),-1));addView(row,new LayoutParams(-1,-1));
+        flip.setLabel("Cambiar");flip.setContentDescription("Cambiar cámara");
         back.setOnClickListener(v->callback.onClose());shutter.setOnClickListener(v->takePhoto());
         flip.setOnClickListener(v->{front=!front;epoch++;latest=null;release();open();});
     }

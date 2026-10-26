@@ -266,3 +266,38 @@ Herramientas: JADX 1.5.6 en `C:\tmp\hb\jadx` (oficial, sha256 545ea2be…); cód
   antes, al venir de Mandala, el dibujo anterior tapaba el laberinto recién puesto.
 - Pruebas: 104 (`tests/test_algorithms.py`), incluidas película, laberinto, canica y agitar.
 
+
+
+## 2.5 (versionCode 40): pulido visual y canica funcional
+
+- Inicio conserva las ilustraciones e incorpora **Juegos → Laberinto / Canica**. Ambos usan el
+  mismo laberinto; la segunda entrada activa directamente el control por inclinación.
+- Herramientas agrupadas con separadores, sin un recuadro por herramienta; seleccionadas en
+  negro. ToolButton adapta icono/texto a controles anchos, limita el tamaño del icono, distingue
+  Volver de Deshacer, admite etiqueta por contexto y expone semántica de botón accesible.
+- Piano, filtros, galería, hoja para colorear y confirmaciones comparten el mismo sistema.
+  Durante Película aparece una indicación visible para detenerla tocando.
+- **Bug real del HiBreak:** TYPE_GRAVITY existe y se registra, pero `dumpsys sensorservice`
+  mostró eventos constantes (0,0,0) mientras ACCELEROMETER sí cambiaba al moverlo.
+  MarbleView usa siempre acelerómetro; Tilt estima gravedad con filtro exponencial de 100 ms
+  independiente de frecuencia y adapta los ejes a la rotación. No volver a preferir el sensor
+  virtual simplemente porque existe. Registra solo las muestras 1, 100 y 250 para diagnóstico.
+- `tests/test_algorithms.py`: 112 comprobaciones, incluyendo cuatro orientaciones, inclinación,
+  rechazo de temblor, independencia de frecuencia y lectura dañada de Tilt.
+- No se modificaron el motor nativo, los documentos editables, el reconocimiento de figuras,
+  la normalización de cámara ni el callback de descanso. La actualización visual no requiere
+  volver a activar el administrador del dispositivo.
+
+- En esta sesión también se detectó un estado obsoleto del servicio de sensores: la app estaba
+  TOP en la ventana, pero `cmd activity get-uid-state <uid>` devolvía NONEXISTENT y
+  `cmd sensorservice get-uid-state mx.dibujos.kiosko` devolvía idle. Una prueba temporal de
+  estado active desbloqueó las muestras. Se retiró con reset-uid-state y se reinició el aparato;
+  después dio TOP / active de forma natural y recibió muestras reales, sin anulaciones.
+  Si reaparece, comprobar ambos estados y reiniciar antes de atribuirlo al código o forzar
+  permanentemente el acceso. No dejar overrides de sensorservice como solución.
+- Mientras Canica está abierta se usa FLAG_KEEP_SCREEN_ON en la ventana (además de la vista);
+  se retira al salir o pausar. Dibujar e inicio conservan su descanso habitual.
+
+- El estado obsoleto de UID reapareció tras reinstalar el APK y no se resolvió con am force-stop
+  (la app está protegida por ser device owner). Reiniciar el HiBreak después de la actualización
+  restaura TOP / active; considerar este detalle del firmware en futuras instalaciones.

@@ -61,7 +61,7 @@ public class PhotoMode extends FrameLayout {
             @Override
             public void onClose() { cb.onHome(); }
         });
-        ToolButton gal = new ToolButton(activity, ToolButton.GALLERY);
+        ToolButton gal = new ToolButton(activity, ToolButton.GALLERY);gal.setLabel("Mis fotos");
         gal.setOnClickListener(v -> showGallery());
         camera.addToBar(gal);
         addView(camera, new LayoutParams(-1, -1));
@@ -135,10 +135,10 @@ public class PhotoMode extends FrameLayout {
         col.addView(iv, new LinearLayout.LayoutParams(-1, 0, 1f));
         LinearLayout bar = new LinearLayout(activity);
         bar.setBackgroundColor(Color.WHITE);
-        bar.setPadding(4, 8, 4, 8);
+        int pad=Math.round(4*getResources().getDisplayMetrics().density);bar.setPadding(pad,pad,pad,pad);
         ToolButton back = new ToolButton(activity, ToolButton.BACK);
         back.setOnClickListener(v -> showGallery());
-        ToolButton paint = new ToolButton(activity, ToolButton.PENCIL);
+        ToolButton paint = new ToolButton(activity, ToolButton.PENCIL);paint.setChosen(true);
         paint.setOnClickListener(v -> cb.onPaint(photo));
         bar.addView(back, new LinearLayout.LayoutParams(0, -1, 1f));
         bar.addView(paint, new LinearLayout.LayoutParams(0, -1, 1f));

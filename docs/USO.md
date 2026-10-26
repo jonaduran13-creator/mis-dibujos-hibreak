@@ -4,7 +4,7 @@ La actualización conserva la firma y el modo kiosco. No requiere internet.
 
 ## Uso
 
-- Inicio: tres ilustraciones grandes para Dibujar, Fotos y Piano.
+- Inicio: cuatro ilustraciones grandes para Dibujar, Fotos, Piano y Juegos.
 - Dibujo: herramientas con etiquetas, tres grosores, goma, deshacer, hoja nueva,
   cámara, dibujos guardados, Mandala. Mandala repite cada trazo en doce
   posiciones simétricas. Se activa y desactiva con la flor; los dibujos se guardan
@@ -16,9 +16,10 @@ La actualización conserva la firma y el modo kiosco. No requiere internet.
   viejos empiezan su película desde como estaban al abrirlos.
 - Música: prendida, cada trazo suena; arriba agudo y abajo grave.
 - Agitar el aparato tres veces seguidas ofrece Nueva hoja o Volver (se cierra solo a los 8 s).
-- Laberinto (en el inicio): llevar la línea de la carita a la estrella; si choca con una pared,
+- **Juegos → Laberinto** (en el inicio): llevar la línea de la carita a la estrella; si choca con una pared,
   el trazo se detiene y suena suave. El botón Canica (en lugar de Mandala) pone una canica que se
-  mueve inclinando el aparato. Al ganar sale una estrella y el siguiente laberinto es más grande
+  mueve inclinando el aparato. También puedes entrar directamente en **Juegos → Canica** desde
+  el inicio: sostén el aparato con la pantalla hacia arriba e inclínalo suavemente. Al ganar sale una estrella y el siguiente laberinto es más grande
   (5 niveles). Nueva hace otro laberinto; Inicio sale.
 - Sellos: abre una tira con nueve dibujitos. Elige uno y toca la hoja para ponerlo; si
   arrastras el dedo antes de soltar, sale más grande (se ve su contorno punteado). Usa la
@@ -60,10 +61,14 @@ Conserva la carpeta `keystore` original y las herramientas de `C:\tmp\hb`.
 El ZIP de código entregado no incluye la llave privada. El script actualiza la
 declaración del administrador existente.
 
+En este firmware, una actualización puede dejar el estado de sensores desincronizado
+aunque la app se vea abierta. Si Canica no recibe inclinación después de actualizar,
+reinicia el HiBreak una vez. No hace falta borrar datos ni cambiar permisos.
+
 ## Comprobaciones
 
 - APK compilado con JDK 17 / Android 30 y firmado con la llave existente.
-- 22 comprobaciones de reconocimiento geométrico, transformaciones de filtros e historial de deshacer.
+- 112 comprobaciones de figuras, filtros, historial, sellos, película, laberintos e inclinación.
   Las pruebas de algoritmos usan reemplazos mínimos de gráficos de Android y
   no validan la detección facial real ni el aspecto físico de la tinta.
 - El registro nativo de reposo de Bigme se comprobó en el HiBreak; una prueba

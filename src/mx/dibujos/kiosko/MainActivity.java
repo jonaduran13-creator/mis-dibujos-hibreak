@@ -63,6 +63,8 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     private View gallery;
     private CameraPanel camera;
     private View startScreen;
+    private View gamesScreen;
+    private static final int MENU_CANICA=-1;
     private PhotoMode photoMode;
     private PhotoToDrawPanel photoSheet;
     private Runnable cancelPhotoSheet;
@@ -404,6 +406,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         if (blackout != null) return;
         if (camera != null) closeCamera();
         else if (photoSheet != null) { if(cancelPhotoSheet!=null)cancelPhotoSheet.run(); }
+        else if (gamesScreen != null) showStart();
         else if (piano != null) showStart();
         else if (gallery != null) closeGallery();
         else if (photoMode != null) { if (!photoMode.back()) showStart(); }
@@ -411,19 +414,20 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     }
 
     private boolean overlayOpen() {
-        return film != null || shakeAsk != null || marble != null || stampPicker != null || photoSheet != null || piano != null || camera != null || gallery != null || photoMode != null || startScreen != null || blackout != null;
+        return gamesScreen != null || film != null || shakeAsk != null || marble != null || stampPicker != null || photoSheet != null || piano != null || camera != null || gallery != null || photoMode != null || startScreen != null || blackout != null;
     }
 
     // ---------- Pantalla de inicio: Dibujar o Fotos ----------
 
     private void showStart() {
+        closeGames();
         closePhotoSheet();
         if (startScreen != null) return;
         ui.removeCallbacks(autosave); saveNow(); closePhotoMode(); closePiano(); endMaze(); stopStamps();
         draw.setActive(false);
         LinearLayout screen = new LinearLayout(this);
         screen.setOrientation(LinearLayout.VERTICAL); screen.setBackgroundColor(Color.WHITE);
-        screen.setClickable(true); screen.setPadding(dp(12),dp(8),dp(12),dp(10));
+        screen.setClickable(true); screen.setPadding(dp(12),dp(8),dp(12),dp(12));
         TextView greeting = new TextView(this);
         greeting.setText(greetingText()); greeting.setTextColor(Color.BLACK); greeting.setTextSize(26);
         greeting.setTypeface(null, android.graphics.Typeface.BOLD);
@@ -432,45 +436,90 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         welcome.addView(greeting);attachParentHold(greeting);
         header.addView(welcome,new LinearLayout.LayoutParams(0,-2,1));
         TextView invitation = new TextView(this);
-        invitation.setText("¿Qué vamos a crear hoy?"); invitation.setTextColor(Color.BLACK); invitation.setTextSize(18);
+        invitation.setText("¿Qué vamos a crear hoy?"); invitation.setTextColor(Color.BLACK); invitation.setTextSize(16);
         invitation.setPadding(dp(24),0,0,dp(4));welcome.addView(invitation);
         header.addView(Linterna.button(this), new LinearLayout.LayoutParams(dp(72), dp(56)));
         header.addView(new BatteryView(this)); // el kiosco oculta la barra de estado: aquí se ve la batería
         screen.addView(header);
         int[] icons={ToolButton.PENCIL,ToolButton.CAMERA,ToolButton.PIANO,ToolButton.MARBLE};
-        String[] names={"Dibujar","Fotos","Piano","Laberinto"};
+        String[] names={"Dibujar","Fotos","Piano","Juegos"};
         View.OnClickListener[] actions={v->{Sounds.play(Sounds.OPEN);hideStart();},
-            v->{Sounds.play(Sounds.CAMERA);openPhotoMode();},v->openPiano(),v->{Sounds.play(Sounds.OPEN);hideStart();startMaze();}};
+            v->{Sounds.play(Sounds.CAMERA);openPhotoMode();},v->openPiano(),v->{Sounds.play(Sounds.OPEN);showGames();}};
         LinearLayout choices=new LinearLayout(this);
         screen.addView(choices,new LinearLayout.LayoutParams(-1,0,1));
         for(int i=0;i<icons.length;i++) {
             LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);
             if(i>0)lp.leftMargin=dp(12);
-            choices.addView(startTile(icons[i],names[i],actions[i]),lp);
+            choices.addView(startTile(icons[i],names[i],new String[]{"Trazos y sellos","Caritas divertidas","Toca y escucha","Laberinto y canica"}[i],actions[i]),lp);
         }
         startScreen=screen;root.addView(screen,new FrameLayout.LayoutParams(-1,-1));
         Eink.apply(this,getWindow(),Eink.DU);Eink.cleanRefresh(this);
     }
 
-    private View startTile(int icon, String label, View.OnClickListener click) {
+    private View startTile(int icon, String label, String description, View.OnClickListener click) {
         LinearLayout tile=new LinearLayout(this);tile.setOrientation(LinearLayout.VERTICAL);
-        tile.setGravity(Gravity.CENTER);tile.setPadding(dp(8),dp(6),dp(8),dp(10));
+        tile.setGravity(Gravity.CENTER);tile.setPadding(dp(8),dp(4),dp(8),dp(12));
         tile.setBackground(Ui.surface(Color.WHITE,dp(16),dp(2)));
         ImageView illustration=new ImageView(this);
         illustration.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        if(icon==ToolButton.MARBLE){
+        if(icon==ToolButton.MARBLE||icon==MENU_CANICA){
             // Un laberintito de muestra, dibujado al momento (cambia cada vez).
             Maze sample=new Maze(5,5,System.nanoTime());sample.layout(dp(220),dp(220),dp(10));
-            illustration.setImageBitmap(MazeArt.render(sample,dp(220),dp(220),getResources().getDisplayMetrics().density));
+            Bitmap art=MazeArt.render(sample,dp(220),dp(220),getResources().getDisplayMetrics().density);
+            if(icon==MENU_CANICA){
+                android.graphics.Canvas canvas=new android.graphics.Canvas(art);android.graphics.Paint ink=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+                float cx=sample.centerX(0),cy=sample.centerY(0),rad=sample.cell*.38f;
+                ink.setColor(Color.WHITE);canvas.drawCircle(cx,cy,rad+dp(2),ink);
+                ink.setColor(Color.BLACK);canvas.drawCircle(cx,cy,rad,ink);
+                ink.setColor(Color.WHITE);canvas.drawCircle(cx-rad*.3f,cy-rad*.3f,rad*.23f,ink);
+            }
+            illustration.setImageBitmap(art);
         }else illustration.setImageResource(icon==ToolButton.PENCIL?R.drawable.menu_dibujar:icon==ToolButton.CAMERA?R.drawable.menu_fotos:R.drawable.menu_piano);
         illustration.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         tile.addView(illustration,new LinearLayout.LayoutParams(-1,0,1));
-        TextView text=new TextView(this);text.setText(label);text.setTextSize(26);text.setTextColor(Color.BLACK);
+        TextView text=new TextView(this);text.setText(label);text.setTextSize(24);text.setTextColor(Color.BLACK);
         text.setTypeface(null,android.graphics.Typeface.BOLD);text.setGravity(Gravity.CENTER);
         tile.addView(text,new LinearLayout.LayoutParams(-1,-2));
-        tile.setContentDescription(label);tile.setFocusable(true);tile.setOnClickListener(click);
-        tile.setOnTouchListener((v,e)->{tile.setBackground(Ui.surface(e.getActionMasked()==MotionEvent.ACTION_DOWN?0xffeeeeee:Color.WHITE,dp(16),dp(2)));return false;});
+        TextView detail=new TextView(this);
+        detail.setText(description);
+        detail.setTextColor(Color.BLACK);detail.setTextSize(12);detail.setGravity(Gravity.CENTER);
+        detail.setPadding(0,dp(2),0,0);tile.addView(detail,new LinearLayout.LayoutParams(-1,-2));
+        tile.setContentDescription(label+". "+description);tile.setFocusable(true);tile.setOnClickListener(click);
+        tile.setOnTouchListener((v,e)->{
+            boolean pressed=e.getActionMasked()==MotionEvent.ACTION_DOWN||e.getActionMasked()==MotionEvent.ACTION_MOVE&&tile.isPressed();
+            tile.setBackground(Ui.surface(Color.WHITE,dp(16),dp(pressed?4:2)));return false;
+        });
         return tile;
+    }
+
+    /** Los dos juegos existentes tienen entrada propia; Canica ya no queda escondida en Mandala. */
+    private void showGames() {
+        if(gamesScreen!=null)return;
+        if(startScreen!=null){root.removeView(startScreen);startScreen=null;}
+        draw.setActive(false);
+        LinearLayout screen=new LinearLayout(this);screen.setOrientation(LinearLayout.VERTICAL);
+        screen.setBackgroundColor(Color.WHITE);screen.setPadding(dp(12),dp(8),dp(12),dp(12));screen.setClickable(true);
+        LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);
+        ToolButton back=new ToolButton(this,ToolButton.HOME);back.setOnClickListener(v->showStart());
+        header.addView(back,new LinearLayout.LayoutParams(dp(64),dp(56)));
+        TextView title=new TextView(this);title.setText("¿Cómo quieres jugar?");title.setTextColor(Color.BLACK);title.setTextSize(26);
+        title.setTypeface(null,android.graphics.Typeface.BOLD);title.setPadding(dp(12),0,0,0);header.addView(title);
+        screen.addView(header);
+        LinearLayout choices=new LinearLayout(this);
+        LinearLayout.LayoutParams left=new LinearLayout.LayoutParams(0,-1,1);left.rightMargin=dp(6);
+        choices.addView(startTile(ToolButton.MARBLE,"Laberinto","Dibuja el camino hasta la estrella",v->launchGame(false)),left);
+        LinearLayout.LayoutParams right=new LinearLayout.LayoutParams(0,-1,1);right.leftMargin=dp(6);
+        choices.addView(startTile(MENU_CANICA,"Canica","Inclina el aparato para mover la bolita",v->launchGame(true)),right);
+        screen.addView(choices,new LinearLayout.LayoutParams(-1,0,1));
+        gamesScreen=screen;root.addView(screen,new FrameLayout.LayoutParams(-1,-1));
+        Eink.cleanRefresh(this);
+    }
+
+    private void closeGames(){if(gamesScreen!=null){root.removeView(gamesScreen);gamesScreen=null;}}
+
+    private void launchGame(boolean ball){
+        Sounds.play(Sounds.OPEN);closeGames();draw.setActive(true);startMaze();
+        if(ball)toggleMarble();
     }
 
     private void hideStart() {
@@ -536,17 +585,14 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         line.setBackgroundColor(Color.BLACK);
         col.addView(line, new LinearLayout.LayoutParams(-1, dp(2)));
 
-        bar = new LinearLayout(this);
-        bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setPadding(dp(6), dp(4), dp(6), dp(2));
-        col.addView(bar, new LinearLayout.LayoutParams(-1, dp(68)));
         LinearLayout actions = new LinearLayout(this);
-        actions.setPadding(dp(6),dp(2),dp(6),dp(6));
-        bar.setVisibility(View.GONE);
-        col.addView(actions,new LinearLayout.LayoutParams(-1,dp(64)));
+        actions.setGravity(Gravity.CENTER_VERTICAL);
+        actions.setPadding(dp(4),dp(2),dp(4),dp(2));
+        col.addView(actions,new LinearLayout.LayoutParams(-1,dp(66)));
         bar=actions;
 
         addTool(actions, ToolButton.HOME).setOnClickListener(v -> { Sounds.play(Sounds.BACK); showStart(); });
+        toolDivider(actions);
         final float[] widths = {dp(2), dp(5), dp(12)};
         final int[] penIcons = {ToolButton.PEN_S, ToolButton.PEN_M, ToolButton.PEN_L};
         final int[] penSounds = {Sounds.PEN_S, Sounds.PEN_M, Sounds.PEN_L};
@@ -574,6 +620,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         stampButton = addTool(actions, ToolButton.STAMP);
         stampButton.setOnClickListener(v -> { Sounds.play(Sounds.OPEN); openStampPicker(); });
         penButtons.add(stampButton);
+        toolDivider(actions);
         musicButton = addTool(actions, ToolButton.MUSIC);
         musicButton.setChosen(musicOn);
         musicButton.setOnClickListener(v -> {
@@ -583,6 +630,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
             if (musicOn) Musica.touch(0, 1, true); else Sounds.play(Sounds.TAP);
         });
 
+        toolDivider(actions);
         undoButton=addTool(actions,ToolButton.UNDO);undoButton.setEnabled(false);
         undoButton.setOnClickListener(v->undoStroke());
         addTool(actions, ToolButton.NEW_PAGE).setOnClickListener(v -> { Sounds.play(Sounds.NEW_PAGE); if (maze != null) newMaze(); else newPage(); });
@@ -593,6 +641,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         filmButton = addTool(actions, ToolButton.FILM);
         filmButton.setOnClickListener(v -> playFilm());
 
+        toolDivider(actions);
         mandalaButton=addTool(actions,ToolButton.MANDALA);
         mandalaButton.setChosen(mandala);mandalaButton.setOnClickListener(v->{if(maze!=null)toggleMarble();else toggleMandala();});
         assistedButton=addTool(actions,assisted?ToolButton.ASSISTED:ToolButton.FREE);assistedButton.setChosen(assisted);
@@ -713,7 +762,14 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         if (recordingBase != null) draw.loadEditable(recordingBase, pagePaper, false);
         else if (pagePaper != null) draw.loadEditable(pagePaper, pagePaper, false);
         else draw.clear();
-        View shield = new View(this);
+        FrameLayout shield = new FrameLayout(this);
+        shield.setContentDescription("Película del dibujo. Toca para parar");
+        TextView playing=new TextView(this);playing.setText("Película · Toca para parar");
+        playing.setTextColor(Color.BLACK);playing.setTextSize(14);playing.setGravity(Gravity.CENTER);
+        playing.setPadding(dp(16),dp(8),dp(16),dp(8));playing.setBackground(Ui.surface(Color.WHITE,dp(10),dp(1)));
+        playing.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        FrameLayout.LayoutParams badge=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.CENTER_HORIZONTAL);badge.topMargin=dp(10);
+        shield.addView(playing,badge);
         shield.setClickable(true);
         shield.setOnClickListener(v -> { if (film != null) film.stop(); });
         filmShield = shield;
@@ -814,6 +870,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         stopStamps();
         draw.setActive(false);
         Sounds.play(Sounds.OPEN);
+        getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         final Maze playing = maze;
         marble = new MarbleView(this, maze, new MarbleView.Callback() {
             @Override public void onBump() { Sounds.play(Sounds.WALL); }
@@ -834,6 +891,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         if (marble == null) return;
         root.removeView(marble);
         marble = null;
+        getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if (mandalaButton != null) mandalaButton.setChosen(false);
         draw.setActive(!overlayOpen());
         cleanNow(); // A2 deja rastro de la canica
@@ -854,14 +912,17 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         Sounds.play(Sounds.ERASER);
         draw.setActive(false);
         LinearLayout box = new LinearLayout(this);
-        box.setGravity(Gravity.CENTER);
+        box.setGravity(Gravity.CENTER);box.setOrientation(LinearLayout.VERTICAL);
+        TextView question=new TextView(this);question.setText("¿Una hoja nueva?");question.setTextSize(28);question.setTextColor(Color.BLACK);
+        question.setTypeface(null,android.graphics.Typeface.BOLD);question.setGravity(Gravity.CENTER);question.setPadding(0,0,0,dp(16));box.addView(question);
+        LinearLayout options=new LinearLayout(this);options.setGravity(Gravity.CENTER);box.addView(options);
         box.setBackgroundColor(Color.WHITE);
         box.setClickable(true);
         ToolButton yes = new ToolButton(this, ToolButton.NEW_PAGE), no = new ToolButton(this, ToolButton.BACK);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(170), dp(150));
         lp.setMargins(dp(24), 0, dp(24), 0);
-        box.addView(yes, lp);
-        box.addView(no, new LinearLayout.LayoutParams(lp));
+        options.addView(yes, lp);
+        options.addView(no, new LinearLayout.LayoutParams(lp));
         yes.setOnClickListener(v -> { closeShakeAsk(); Sounds.play(Sounds.NEW_PAGE); if (maze != null) newMaze(); else newPage(); });
         no.setOnClickListener(v -> { Sounds.play(Sounds.BACK); closeShakeAsk(); });
         shakeAsk = box;
@@ -1008,8 +1069,15 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     }
 
 
+    private void toolDivider(LinearLayout row) {
+        View line=new View(this);line.setBackgroundColor(Color.BLACK);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(1),dp(28));
+        lp.setMargins(dp(3),0,dp(3),0);row.addView(line,lp);
+    }
+
     private ToolButton addTool(LinearLayout bar, int icon) {
         ToolButton t = new ToolButton(this, icon);
+        t.setQuiet(true);
         bar.addView(t, new LinearLayout.LayoutParams(0, -1, 1f));
         return t;
     }

@@ -157,7 +157,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     private final android.content.BroadcastReceiver screenReceiver = new android.content.BroadcastReceiver() {
         @Override
         public void onReceive(android.content.Context c, Intent i) {
-            if (Intent.ACTION_SCREEN_OFF.equals(i.getAction())) { Linterna.get(c).set(false); showBlackout(); }
+            if (Intent.ACTION_SCREEN_OFF.equals(i.getAction())) { Feel.pause();Linterna.get(c).set(false); showBlackout(); }
             else hideBlackout();
         }
     };
@@ -363,6 +363,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     @Override
     protected void onResume() {
         super.onResume();
+        Feel.resume(this);applyReadingLight();
         hideSystemBars();
         enterLockTask();
         Eink.apply(this, getWindow(), camera != null || photoMode != null ? Eink.FAST : einkMode());
@@ -378,6 +379,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     @Override
     protected void onPause() {
         super.onPause();
+        Feel.pause();
         if (sensors != null) sensors.unregisterListener(shakeListener);
         if (film != null) film.stop();
         stopMarble();
@@ -726,9 +728,10 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         final Bitmap picture=beforeCamera;beforeCamera=null;
         final boolean restore=!paintingPhoto;
+        final int returningDocument=documentRequest;
         whenLandscape(()->{
             root.getChildAt(0).setVisibility(View.VISIBLE);
-            draw.view().post(()->{if(picture!=null&&restore)restorePicture(picture,false);draw.onResume();draw.setActive(!overlayOpen());});
+            draw.view().post(()->{if(picture!=null&&restore&&returningDocument==documentRequest)restorePicture(picture,false);draw.onResume();draw.setActive(!overlayOpen());});
         });
     }
 
@@ -891,6 +894,8 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         root.addView(marble, lp);
         mandalaButton.setChosen(true);
         marble.post(() -> { if (marble != null) Eink.applyView(this, marble, Eink.A2); });
+        // Un último repintado completo tras terminar los envíos nativos ya en curso.
+        ui.postDelayed(()->{if(marble!=null&&marbleSession==session)marble.invalidate();},300);
     }
 
     private void marbleTimeout(boolean playing){
@@ -1446,7 +1451,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     }
 
     private void parentMenu() {
-        String[] items = {"Modo de pantalla", "Salir 15 minutos", "Cambiar PIN", "Fondo de descanso", "Quitar el modo kiosco para siempre", "Nombre en el saludo", "Limpieza de sombras"};
+        String[] items = {"Modo de pantalla", "Salir 15 minutos", "Cambiar PIN", "Fondo de descanso", "Quitar el modo kiosco para siempre", "Nombre en el saludo", "Limpieza de sombras", "Vibración y luz"};
         new AlertDialog.Builder(this)
                 .setTitle("Menú de papá/mamá")
                 .setItems(items, (d, which) -> {
@@ -1457,7 +1462,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
                         .setSingleChoiceItems(new String[]{"Escenas cristianas que se alternan", "Negro completo"}, prefs.getBoolean("sleepBlack",false)?1:0, (dialog,choice)->{prefs.edit().putBoolean("sleepBlack",choice==1).apply();dialog.dismiss();}).show();
                     else if (which == 4) confirmRemoveKiosk();
                     else if (which == 5) askChildName();
-                    else new AlertDialog.Builder(this).setTitle("Limpieza de sombras")
+                    else if(which==6) new AlertDialog.Builder(this).setTitle("Limpieza de sombras")
                         .setSingleChoiceItems(new String[]{"Suave: se limpia solo donde dibujó (menos parpadeo)", "Clásica: refresco completo cada 12 trazos"},
                             prefs.getBoolean("softClean", true) ? 0 : 1, (dialog, choice) -> {
                                 boolean on = choice == 0;
@@ -1465,9 +1470,58 @@ public class MainActivity extends Activity implements Lienzo.Listener {
                                 draw.setSoftClean(on);
                                 dialog.dismiss();
                             }).show();
+                    else feedbackSettings();
                 })
+                .setNeutralButton("Reiniciar",(dialog,which)->confirmRestart())
                 .setNegativeButton("Cerrar", null)
                 .show();
+    }
+
+    private void applyReadingLight(){
+        int level=prefs.getInt("readingLight",-1);
+        android.view.WindowManager.LayoutParams window=getWindow().getAttributes();
+        window.screenBrightness=level<0?-1f:Math.max(0,Math.min(100,level))/100f;
+        getWindow().setAttributes(window);
+    }
+
+    private void feedbackSettings(){
+        LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(24),dp(12),dp(24),dp(12));
+        android.widget.CheckBox vibration=new android.widget.CheckBox(this);vibration.setText("Vibración suave");vibration.setTextColor(Color.BLACK);vibration.setChecked(prefs.getBoolean("haptics",true));box.addView(vibration);
+        TextView label=new TextView(this);label.setTextColor(Color.BLACK);label.setTextSize(18);label.setPadding(0,dp(16),0,dp(8));box.addView(label);
+        int chosen=prefs.getInt("readingLight",-1);
+        int initial=chosen<0?Math.round(android.provider.Settings.System.getInt(getContentResolver(),android.provider.Settings.System.SCREEN_BRIGHTNESS,128)*100/255f):chosen;
+        android.widget.SeekBar light=new android.widget.SeekBar(this);light.setMax(100);light.setProgress(initial);label.setText("Luz de pantalla: "+initial+" %");box.addView(light);
+        final boolean[] changed={false};
+        light.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener(){
+            public void onStartTrackingTouch(android.widget.SeekBar s){}
+            public void onStopTrackingTouch(android.widget.SeekBar s){}
+            public void onProgressChanged(android.widget.SeekBar s,int value,boolean fromUser){if(fromUser)changed[0]=true;label.setText("Luz de pantalla: "+value+" %");}
+        });
+        new AlertDialog.Builder(this).setTitle("Vibración y luz").setView(box).setNegativeButton("Cancelar",null)
+            .setNeutralButton("Luz del sistema",(dialog,which)->{prefs.edit().putInt("readingLight",-1).apply();applyReadingLight();})
+            .setPositiveButton("Guardar",(dialog,which)->{
+                android.content.SharedPreferences.Editor edit=prefs.edit().putBoolean("haptics",vibration.isChecked());
+                if(changed[0])edit.putInt("readingLight",light.getProgress());edit.apply();
+                if(!vibration.isChecked())Feel.pause();else{Feel.resume(this);Feel.tick();}
+                applyReadingLight();
+            }).show();
+    }
+
+    private void confirmRestart(){
+        new AlertDialog.Builder(this).setTitle("¿Reiniciar el dispositivo?")
+            .setMessage("Se guardará el dibujo antes de reiniciar. El aparato volverá a Mis Dibujos.")
+            .setNegativeButton("Cancelar",null)
+            .setPositiveButton("Reiniciar",(dialog,which)->{
+                if(!isOwner()){android.widget.Toast.makeText(this,"Reinicio no disponible en este equipo",android.widget.Toast.LENGTH_LONG).show();return;}
+                stopMarble();draw.setActive(false);ui.removeCallbacks(autosave);saveNow();
+                android.widget.Toast.makeText(this,"Guardando y reiniciando…",android.widget.Toast.LENGTH_LONG).show();
+                // La cola de E/S termina los guardados pendientes antes de pedir el reinicio.
+                io.execute(()->ui.post(()->{
+                    if(draw.isDirty()){draw.setActive(!overlayOpen());android.widget.Toast.makeText(this,"No se pudo guardar. Reinicio cancelado.",android.widget.Toast.LENGTH_LONG).show();return;}
+                    try{dpm.reboot(admin);}
+                    catch(RuntimeException error){draw.setActive(!overlayOpen());android.widget.Toast.makeText(this,"No se pudo reiniciar el dispositivo",android.widget.Toast.LENGTH_LONG).show();}
+                }));
+            }).show();
     }
 
     /** "¡Hola!" o "Hola, Nombre": el nombre lo pone papá/mamá; no va en el código. */

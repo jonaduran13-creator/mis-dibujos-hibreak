@@ -26,6 +26,23 @@ public final class EditChecks extends Instrumentation {
     private void touch(DrawView view,int action,float x,float y,long start){MotionEvent e=MotionEvent.obtain(start,SystemClock.uptimeMillis(),action,x,y,0);view.onTouchEvent(e);e.recycle();}
     private void stroke(DrawView view,float x0,float y0,float x1,float y1){long start=SystemClock.uptimeMillis();touch(view,0,x0,y0,start);for(int i=1;i<=24;i++)touch(view,2,x0+(x1-x0)*i/24,y0+(y1-y0)*i/24,start);touch(view,1,x1,y1,start);}
     private void verify(){
+        // Regresión de la foto retenida: se inspecciona el estado real del NoteView de Bigme,
+        // fuera de pantalla y dentro del paquete independiente de pruebas.
+        try{
+            XrzLienzo nativeCanvas=new XrzLienzo(getTargetContext());nativeCanvas.view().layout(0,0,256,256);
+            Bitmap ink=white();new Canvas(ink).drawColor(Color.BLACK);
+            nativeCanvas.loadEditable(ink,null,false);
+            java.lang.reflect.Field foreground=nativeCanvas.view().getClass().getDeclaredField("mForeground");foreground.setAccessible(true);
+            check(foreground.get(nativeCanvas.view())!=null,"el motor retiene la tinta importada antes de limpiar");
+            nativeCanvas.clear();check(foreground.get(nativeCanvas.view())==null,"hoja nueva olvida la imagen retenida del motor");
+            nativeCanvas.onResume();check(foreground.get(nativeCanvas.view())==null,"reiniciar el lienzo no recupera la foto anterior");
+        }catch(ReflectiveOperationException failure){throw new AssertionError(failure);}
+        Maze game=new Maze(6,3,7);game.layout(600,300,10);
+        MarbleView ball=new MarbleView(getTargetContext(),game,new MarbleView.Callback(){public void onBump(){}public void onGoal(){}public void onIdle(){}});
+        ball.layout(0,0,600,300);Bitmap board=Bitmap.createBitmap(600,300,Bitmap.Config.ARGB_8888);board.eraseColor(Color.MAGENTA);ball.draw(new Canvas(board));
+        check(board.getPixel((int)game.left,(int)game.top)==Color.BLACK,"canica dibuja sus propios muros sin el lienzo nativo");
+        check(board.getPixel(0,0)==Color.WHITE,"canica cubre por completo una imagen previa");
+        check(board.getPixel((int)game.centerX(0),(int)game.centerY(0))==Color.BLACK,"canica dibuja la bolita sobre el tablero");
         Bitmap legacy=white();Paint black=new Paint();black.setColor(Color.BLACK);black.setStrokeWidth(20);
         new Canvas(legacy).drawLine(40,128,216,128,black);
         DrawView v=view();v.load(legacy);v.setEraser(32);stroke(v,128,80,128,176);

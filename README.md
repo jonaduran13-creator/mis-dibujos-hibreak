@@ -36,6 +36,9 @@ engine for near real-time finger drawing. Spanish UI.*
 - **Fotos** con la cámara selfie o trasera, filtros (Ojotes, Globo, Espejo, Invertido) y
   "pintar sobre la foto" como hoja para colorear (contornos).
 - **Pianito** de una octava con cinco sonidos sintetizados.
+- **Vibración suave** según las acciones en piano, dibujo, cámara y juegos; se puede apagar
+  desde el menú de padres. Luz de pantalla ajustable sin modificar el brillo global.
+- **Reiniciar** desde el menú protegido, con confirmación y guardado previo.
 - Sonidos de campanita sintetizados (sin archivos de audio).
 - Al dormirse muestra una ilustración de descanso (o negro); se duerme solo tras 1 minuto.
 - Nivel de batería en la pantalla de inicio (el kiosco oculta la barra de estado).

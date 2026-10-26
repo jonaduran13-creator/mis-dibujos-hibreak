@@ -94,3 +94,14 @@ Las nuevas ediciones conservan un proyecto `.dibujo` dentro de los archivos priv
 El dibujo nuevo usa el motor rápido cuando es posible. Al reabrir, borrar o restaurar una imagen se usa el lienzo editable para que la tinta guardada no se convierta en un fondo imborrable. Mandala conserva el papel en su posición original al borrar.
 
 Se verificaron 19 casos reales de Android sobre dibujos sintéticos en un paquete aislado: borrado de PNG antiguo, trazos vecinos, deshacer, edición nueva, foto protegida, borrado simétrico, carga antes del layout, cambio de tamaño, nueva hoja, finalización al suspender y guardado/reapertura con recuperación ante fallos. Los dibujos del niño no se usaron como pruebas.
+
+
+## Vibración, luz y reinicio
+
+Mantén cinco segundos el saludo de Inicio y entra con el PIN de papá/mamá.
+- **Reiniciar dispositivo** pide confirmación y guarda antes de reiniciar.
+- **Vibración y luz** permite apagar la vibración suave o fijar la luz de la pantalla.
+  Luz del sistema vuelve a usar el ajuste habitual del aparato.
+- Piano responde con un toque corto al pulsar una nota. Dibujo responde al poner sellos,
+  corregir figuras o deshacer, sin vibrar mientras se traza. Cámara y juegos tienen señales
+  breves al actuar, chocar o ganar. La vibración se detiene al dormir o salir de la app.

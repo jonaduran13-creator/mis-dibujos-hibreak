@@ -36,7 +36,7 @@ final class PianoMode extends LinearLayout {
             LayoutParams soundLayout=new LayoutParams(0,dp(56),1); if(i>0)soundLayout.leftMargin=dp(8);
             b.setStateListAnimator(null); sounds.addView(b,soundLayout);
             b.setOnClickListener(v -> {
-                soundId=id;
+                Feel.tick();soundId=id;
                 if (audio != null) audio.sound(id);
                 keys.clearNotes();
                 for(int j=0;j<sounds.getChildCount();j++) {
@@ -103,6 +103,7 @@ final class PianoMode extends LinearLayout {
                 }
             }
             if(!java.util.Arrays.equals(down,next)){
+                for(int note=0;note<13;note++)if(next[note]&&!down[note]){Feel.tick();break;}
                 System.arraycopy(next,0,down,0,13);if(audio!=null)audio.notes(next);invalidate();
             }
             return true;

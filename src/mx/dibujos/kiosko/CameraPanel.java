@@ -47,7 +47,7 @@ public class CameraPanel extends FrameLayout implements TextureView.SurfaceTextu
             LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(60),1);if(i>0)lp.leftMargin=dp(4);
             filters.addView(button,lp);
             button.setOnClickListener(v->{
-                filterMode=mode;epoch++;lastFrame=0;
+                Feel.tick();filterMode=mode;epoch++;lastFrame=0;
                 
                 hint.setText("Centra tu carita");hint.setVisibility(mode==1||mode==2?VISIBLE:GONE);
                 for(int j=0;j<filters.getChildCount();j++)((ToolButton)filters.getChildAt(j)).setChosen(j==mode);

@@ -28,6 +28,7 @@ final class MarbleView extends View implements SensorEventListener {
 
     private static final long TICK = 40; // ~25 cuadros por segundo: lo que A2 alcanza a mostrar
     private final Maze maze;
+    private android.graphics.Bitmap board;
     private final Callback cb;
     private final SensorManager sensors;
     private final Paint paint = new Paint();
@@ -127,8 +128,17 @@ final class MarbleView extends View implements SensorEventListener {
         }
     };
 
+    @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){
+        super.onSizeChanged(w,h,oldw,oldh);
+        // Tablero propio: el motor nativo puede ocultar su fondo al desactivar la entrada.
+        // Se rasteriza una sola vez; cada movimiento repinta únicamente el rectángulo sucio.
+        if(w>0&&h>0)board=MazeArt.render(maze,w,h,getResources().getDisplayMetrics().density);
+    }
+
     @Override
     protected void onDraw(Canvas c) {
+        c.drawColor(Color.WHITE);
+        if(board!=null)c.drawBitmap(board,0,0,null);
         float r = radius();
         paint.setColor(Color.BLACK);
         c.drawCircle(x, y, r, paint);

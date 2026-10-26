@@ -53,6 +53,7 @@ public final class Sounds {
     }
 
     public static void play(int id) {
+        Feel.play(id);
         AudioTrack t = tracks[id];
         if (t == null) return;
         try {

@@ -190,7 +190,9 @@ public class XrzLienzo implements Lienzo {
         generation++;
         dropPending();
         note.clear(true);
-        note.setBackground(blank(), true);
+        // clear() vacía el búfer, pero NO olvida mForeground: una foto importada
+        // reaparecía al repintar la superficie. Sustituir ambas capas retenidas.
+        note.setForegroundAndBackgroundTogether(null, blank(), true);
         shortenInputBlock();
         dirty = false;
         if (listener != null) listener.onRedrawn();
@@ -304,7 +306,7 @@ public class XrzLienzo implements Lienzo {
             return;
         }
         dropPending();
-        note.setBackground(fit(b), true);
+        note.setForegroundAndBackgroundTogether(null,fit(b),true);
         shortenInputBlock();
         Log.i(TAG, "fondo " + b.getWidth() + "x" + b.getHeight());
     }
@@ -363,7 +365,7 @@ public class XrzLienzo implements Lienzo {
     @Override
     public void setActive(boolean on) {
         if (active == on) return;
-        if(!on)generation++;
+        if(!on){generation++;note.removeCallbacks(snap);note.removeCallbacks(softCleanNow);}
         active = on;
         if (drawing) feedUp();
         note.setInputEnabled(on);
@@ -382,7 +384,7 @@ public class XrzLienzo implements Lienzo {
             if (pendingLayers) {
                 applyLayers(pendingInk, pendingBackground);
             } else if (pendingBackground != null) {
-                note.setBackground(fit(pendingBackground), true);
+                note.setForegroundAndBackgroundTogether(null,fit(pendingBackground),true);
                 shortenInputBlock();
             }
         } catch (RuntimeException e) {
@@ -452,7 +454,7 @@ public class XrzLienzo implements Lienzo {
     @Override public void setSoftClean(boolean on) { softClean = on; if (!on) note.removeCallbacks(softCleanNow); }
 
     private void softCleanNow() {
-        if (drawing || touched.isEmpty() || !softClean) return;
+        if (!active || drawing || touched.isEmpty() || !softClean) return;
         android.graphics.Rect r = new android.graphics.Rect(touched);
         touched.setEmpty();
         r.inset(-48, -48); // el grosor del trazo y la goma (el motor recorta al panel)

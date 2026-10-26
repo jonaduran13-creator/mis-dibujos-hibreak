@@ -308,3 +308,30 @@ Herramientas: JADX 1.5.6 en `C:\tmp\hb\jadx` (oficial, sha256 545ea2be…); cód
   setupKiosk lo restablece al arrancar. Tras 3 min sin mover la canica, inclinar ni tocar,
   MarbleView llama onIdle y sale de la partida, recuperando el reposo habitual. El botón físico
   de bloqueo sigue funcionando. No cambiar permanentemente el descanso del resto de la app.
+
+
+## 2.6 (versionCode 41): tablero, hoja nueva, reinicio y respuestas táctiles
+
+- Canica rasteriza MazeArt una vez en onSizeChanged y compone fondo blanco, tablero y bolita
+  dentro de su propia vista. Nunca depender del fondo del NoteView: puede desaparecer al
+  desactivar la entrada nativa. Las invalidaciones siguen limitadas al área de movimiento.
+- NoteView.clear solo vacía el búfer y conserva mForeground. XrzLienzo.clear ahora sustituye
+  explícitamente ambas capas con setForegroundAndBackgroundTogether(null, blanco, true).
+  Las cargas de fondo sin tinta también olvidan el foreground anterior. Esto impide que una
+  foto reaparezca tras Hoja nueva o recrear la superficie.
+- El regreso asíncrono de cámara no restaura una imagen si documentRequest ya cambió.
+- Menú protegido: Reiniciar dispositivo → confirmación. Espera la cola de guardado y cancela
+  si el dibujo sigue sucio por error de escritura; usa dpm.reboot como device owner existente.
+- Feel: VIBRATE normal, pulsos de 6–12 ms según capacidad, amplitud baja donde se admite,
+  separación mínima entre pulsos y dos pulsos al ganar. Se cancela al pausar/dormir. Sonidos
+  semánticos disparan el tacto; piano solo pulsa al entrar una nota nueva, no durante sostén
+  ni al soltar. Los filtros tienen un toque. No vibrar con cada punto del dedo.
+- Menú Vibración y luz: permite apagar el tacto y fijar luz 0–100 mediante brillo de ventana,
+  sin tocar la configuración global. Por defecto hereda luz del sistema. No hay destellos
+  repetidos ni animación luminosa al dibujar. El botón Luz del sistema quita la anulación.
+- Pruebas: 112 algoritmos y 25 verificaciones Android aisladas, incluidas 6 regresiones de
+  foreground retenido y composición de Canica. El paquete de pruebas no lee datos del niño.
+
+- Desactivar XrzLienzo cancela snap y softCleanNow; este último también comprueba active.
+  Una limpieza nativa diferida no debe repintar por encima de cámara o Canica.
+- Reiniciar es un botón fijo al pie del menú protegido, para encontrarlo sin recorrer la lista.

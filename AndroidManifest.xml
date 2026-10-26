@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="mx.dibujos.kiosko"
-    android:versionCode="40"
-    android:versionName="2.5">
+    android:versionCode="41"
+    android:versionName="2.6">
 
     <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="30" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application

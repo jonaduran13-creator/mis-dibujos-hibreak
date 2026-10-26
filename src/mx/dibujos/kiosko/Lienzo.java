@@ -15,7 +15,13 @@ public interface Lienzo {
     View view();
     void setListener(Listener l);
     default void setShapeAssist(boolean enabled) {}
+    /** Puntas del lápiz: normal, grafito con textura, pincel que se adelgaza y punteado. */
+    int BRUSH_PEN = 0, BRUSH_PENCIL = 1, BRUSH_BRUSH = 2, BRUSH_DASH = 3, BRUSHES = 4;
+    /** Cambia la punta; se aplica en el siguiente setPen. */
+    default void setBrush(int brush) {}
     void setPen(float width);
+    /** Dibuja un sello (varios trazos, en coordenadas de la vista) con la punta actual, como un trazo más. */
+    void stamp(java.util.List<java.util.List<android.graphics.PointF>> strokes);
     void setEraser(float width);
     void undo();
     void clear();

@@ -14,7 +14,11 @@ import android.view.View;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.xrz.BasePen;
+import com.xrz.BrushPen;
+import com.xrz.DashPen;
 import com.xrz.NoteView;
+import com.xrz.Pencil;
 import com.xrz.Rubber;
 import com.xrz.SimplePen;
 
@@ -67,15 +71,69 @@ public class XrzLienzo implements Lienzo {
     @Override public void markSaved() { dirty = false; }
     @Override public void markDirty(){dirty=true;}
 
+    private int brush = BRUSH_PEN;
+    @Override public void setBrush(int b) { brush = b; }
+
+    /**
+     * Las puntas vienen en handwritten.jar aunque Bigme no las usa en ninguna app: grafito
+     * (Pencil, con textura de lápiz), pincel (BrushPen, el ancho cambia con la velocidad)
+     * y punteado (DashPen). Todas se pintan igual de rápido que el lápiz normal.
+     */
     @Override
     public void setPen(float width) {
-        int w = Math.max(1, Math.round(width));
-        SimplePen pen = new SimplePen();
-        pen.setAutoStrokeWidthEnabled(false);
-        pen.setStrokeWidthRange(w - 1, w); // el motor exige máximo > mínimo
+        int w = Math.max(2, Math.round(width));
+        BasePen pen;
+        switch (brush) {
+            case BRUSH_PENCIL:
+                pen = new Pencil(w);
+                pen.setAutoStrokeWidthEnabled(false);
+                pen.setStrokeWidthRange(w - 1, w); // el motor exige máximo > mínimo
+                break;
+            case BRUSH_BRUSH:
+                pen = new BrushPen(w);
+                pen.setAutoStrokeWidthEnabled(true); // trazo lento: grueso; rápido: delgado
+                pen.setStrokeWidthRange(Math.max(1, w / 3), w * 2);
+                break;
+            case BRUSH_DASH: {
+                DashPen dash = new DashPen(w);
+                dash.setDashPathEffect(new android.graphics.DashPathEffect(new float[]{w * 2.5f + 6, w * 2f + 6}, 0));
+                pen = dash;
+                pen.setAutoStrokeWidthEnabled(false);
+                pen.setStrokeWidthRange(w - 1, w);
+                break;
+            }
+            default:
+                pen = new SimplePen();
+                pen.setAutoStrokeWidthEnabled(false);
+                pen.setStrokeWidthRange(w - 1, w);
+        }
         pen.setStrokeWidth(w);
         note.setPen(pen);
         erasing = false;
+    }
+
+    /** Cada trazo del sello entra al motor como si fuera el dedo, en puntos cercanos. */
+    @Override
+    public void stamp(List<List<PointF>> strokes) {
+        if (!active || drawing || replacing) return;
+        int[] at = new int[2];
+        note.getLocationOnScreen(at);
+        if (listener != null) listener.onStrokeStarted();
+        for (List<PointF> s : strokes) {
+            if (s.isEmpty()) continue;
+            PointF a = s.get(0);
+            feed(DOWN, a.x + at[0], a.y + at[1]);
+            for (int i = 1; i < s.size(); i++) {
+                PointF b = s.get(i);
+                int steps = Math.max(1, (int) (Math.hypot(b.x - a.x, b.y - a.y) / 6));
+                for (int k = 1; k <= steps; k++)
+                    feed(MOVE, a.x + (b.x - a.x) * k / steps + at[0], a.y + (b.y - a.y) * k / steps + at[1]);
+                a = b;
+            }
+            feed(UP, a.x + at[0], a.y + at[1]);
+        }
+        dirty = true;
+        if (listener != null) listener.onStrokeFinished();
     }
 
     @Override

@@ -9,6 +9,12 @@ La actualización conserva la firma y el modo kiosco. No requiere internet.
   cámara, dibujos guardados, Mandala. Mandala repite cada trazo en doce
   posiciones simétricas. Se activa y desactiva con la flor; los dibujos se guardan
   en la misma carpeta de siempre. Sus guías punteadas no se guardan en la imagen.
+- Punta (el botón después de la goma): cada toque cambia entre Lápiz, Grafito, Pincel y
+  Puntos, con el grosor elegido. Se recuerda al apagar.
+- Sellos: abre una tira con nueve dibujitos. Elige uno y toca la hoja para ponerlo; si
+  arrastras el dedo antes de soltar, sale más grande (se ve su contorno punteado). Usa la
+  punta elegida, funciona en Mandala (sale 12 veces) y Deshacer lo quita entero. Para volver
+  a dibujar, toca un grosor.
 - Figuras: el reconocimiento intenta corregir al levantar el dedo o tras una
   pausa de 350 ms. Reconoce línea, círculo, óvalo, triángulo, rectángulo, rombo,
   pentágono, hexágono, corazón, estrella (de contorno o de un trazo) y luna, aunque

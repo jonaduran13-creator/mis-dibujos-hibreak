@@ -29,9 +29,11 @@ public class DrawView extends View implements Lienzo {
         final ArrayList<android.graphics.PointF> points = new ArrayList<>();
         final float width;
         final boolean eraser;
-        Stroke(float width, boolean eraser) {
+        final boolean dashed;
+        Stroke(float width, boolean eraser, boolean dashed) {
             this.width = width;
             this.eraser = eraser;
+            this.dashed = dashed && !eraser;
         }
     }
 
@@ -80,9 +82,30 @@ public class DrawView extends View implements Lienzo {
 
     public void setListener(Listener l) { listener = l; }
 
+    private int brush = BRUSH_PEN;
+    /** Aquí solo el punteado se ve distinto; grafito y pincel son del motor de Bigme. */
+    @Override public void setBrush(int b) { brush = b; }
+
     public void setPen(float width) {
         penWidth = width;
         eraser = false;
+    }
+
+    @Override
+    public void stamp(java.util.List<java.util.List<android.graphics.PointF>> shape) {
+        if (canvas == null || !active || current != null) return;
+        if (listener != null) listener.onStrokeStarted();
+        for (java.util.List<android.graphics.PointF> s : shape) {
+            if (s.isEmpty()) continue;
+            Stroke st = new Stroke(penWidth, false, brush == BRUSH_DASH);
+            st.path.moveTo(s.get(0).x, s.get(0).y);
+            for (android.graphics.PointF p : s) { st.path.lineTo(p.x, p.y); st.points.add(p); }
+            strokes.add(st);
+        }
+        while (strokes.size() > MAX_UNDO) drawStroke(new Canvas(committed), strokes.remove(0));
+        rebuild();
+        dirty = true;
+        if (listener != null) listener.onStrokeFinished();
     }
 
     public void setEraser(float width) {
@@ -192,6 +215,7 @@ public class DrawView extends View implements Lienzo {
         paint.setStrokeWidth(s.width);
         paint.setColor(Color.BLACK);
         paint.setShader(s.eraser ? eraserShader : null);
+        paint.setPathEffect(s.dashed ? new android.graphics.DashPathEffect(new float[]{s.width * 2.5f + 6, s.width * 2f + 6}, 0) : null);
     }
 
     private void drawStroke(Canvas c, Stroke s) {
@@ -234,7 +258,7 @@ public class DrawView extends View implements Lienzo {
                 if(listener!=null)listener.onStrokeStarted();
                 activePointer = e.getPointerId(0);
                 float x = e.getX(), y = e.getY();
-                current = new Stroke(penWidth, eraser);
+                current = new Stroke(penWidth, eraser, brush == BRUSH_DASH);
                 current.points.add(new android.graphics.PointF(x,y));
                 current.path.moveTo(x, y);
                 current.path.lineTo(x + 0.1f, y + 0.1f);
@@ -288,11 +312,12 @@ public class DrawView extends View implements Lienzo {
                 corrected=true;Sounds.play(Sounds.SNAP);
             }
         }
+        boolean dashed=current.dashed;
         strokes.add(current);
         current = null;
         activePointer = -1;
         dirty = true;
-        if(corrected)rebuild();
+        if(corrected||dashed)rebuild(); // el punteado se ve completo al soltar
         if (strokes.size() > MAX_UNDO) {
             drawStroke(new Canvas(committed), strokes.remove(0));
         }

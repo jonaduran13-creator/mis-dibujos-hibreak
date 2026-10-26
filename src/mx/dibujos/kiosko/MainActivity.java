@@ -72,6 +72,12 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     private boolean assisted=true;
     private ToolButton assistedButton;
     private ToolButton mandalaButton;
+    private int brush;
+    private ToolButton brushButton;
+    private ToolButton stampButton;
+    private int stampKind = -1; // sello elegido; -1 = se dibuja normal
+    private View stampPicker;
+    private StampPad stampPad;
     private Bitmap beforeCamera;
     private boolean paintingPhoto;
     private PianoMode piano;
@@ -100,6 +106,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         setupKiosk();
         mandala=prefs.getBoolean("mandala",false);
         assisted=prefs.getBoolean("assisted",true);
+        brush=Math.floorMod(prefs.getInt("brush",Lienzo.BRUSH_PEN),Lienzo.BRUSHES);
         buildUi();
         sleepLogo = new SleepLogo(this, prefs);
         sleepLogo.register();
@@ -370,7 +377,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     }
 
     private boolean overlayOpen() {
-        return photoSheet != null || piano != null || camera != null || gallery != null || photoMode != null || startScreen != null || blackout != null;
+        return stampPicker != null || photoSheet != null || piano != null || camera != null || gallery != null || photoMode != null || startScreen != null || blackout != null;
     }
 
     // ---------- Pantalla de inicio: Dibujar o Fotos ----------
@@ -509,12 +516,26 @@ public class MainActivity extends Activity implements Lienzo.Listener {
             final ToolButton t = addTool(actions, penIcons[i]);
             final float w = widths[i];
             final int snd = penSounds[i];
-            t.setOnClickListener(v -> { Sounds.play(snd); draw.setPen(w); selectedPenWidth=w; erasing = false; choose(t); });
+            t.setOnClickListener(v -> { Sounds.play(snd); stopStamps(); draw.setPen(w); selectedPenWidth=w; erasing = false; choose(t); });
             penButtons.add(t);
         }
         final ToolButton eraser = addTool(actions, ToolButton.ERASER);
-        eraser.setOnClickListener(v -> { Sounds.play(Sounds.ERASER); ensureEditableCanvas(); draw.setEraser(dp(24)); erasing = true; choose(eraser); });
+        eraser.setOnClickListener(v -> { Sounds.play(Sounds.ERASER); stopStamps(); ensureEditableCanvas(); draw.setEraser(dp(24)); erasing = true; choose(eraser); });
         penButtons.add(eraser);
+
+        // Punta: cada toque pasa a la siguiente (lápiz, grafito, pincel, puntos).
+        brushButton = addTool(actions, ToolButton.TIPS[brush]);
+        brushButton.setOnClickListener(v -> {
+            Sounds.play(Sounds.BRUSH);
+            brush = (brush + 1) % Lienzo.BRUSHES;
+            prefs.edit().putInt("brush", brush).apply();
+            brushButton.setIcon(ToolButton.TIPS[brush]);
+            draw.setBrush(brush);
+            if (!erasing) draw.setPen(selectedPenWidth);
+        });
+        stampButton = addTool(actions, ToolButton.STAMP);
+        stampButton.setOnClickListener(v -> { Sounds.play(Sounds.OPEN); openStampPicker(); });
+        penButtons.add(stampButton);
 
         undoButton=addTool(actions,ToolButton.UNDO);undoButton.setEnabled(false);
         undoButton.setOnClickListener(v->undoStroke());
@@ -541,7 +562,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
 
     /** El motor rápido de Bigme si el sistema lo trae; si no, el lienzo normal de Android. */
     private Lienzo createLienzo(){
-        Lienzo canvas=createRawLienzo();canvas.setShapeAssist(assisted);return canvas;
+        Lienzo canvas=createRawLienzo();canvas.setShapeAssist(assisted);canvas.setBrush(brush);return canvas;
     }
 
     private Lienzo createRawLienzo() {
@@ -570,7 +591,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         parent.removeView(previous);mandala=!mandala;prefs.edit().putBoolean("mandala",mandala).apply();
         draw=createLienzo();draw.setListener(this);selectedPenWidth=dp(5);draw.setPen(selectedPenWidth);
         parent.addView(draw.view(),index,lp);if(picture!=null)draw.loadEditable(picture,pagePaper,false);
-        choose(penButtons.get(1));erasing=false;mandalaButton.setChosen(mandala);
+        stopStamps();choose(penButtons.get(1));erasing=false;mandalaButton.setChosen(mandala);
         draw.view().post(()->{draw.onResume();Eink.cleanRefresh(this);});
     }
 
@@ -610,6 +631,132 @@ public class MainActivity extends Activity implements Lienzo.Listener {
             draw.view().post(()->{if(picture!=null&&restore)restorePicture(picture,false);draw.onResume();draw.setActive(!overlayOpen());});
         });
     }
+
+    // ---------- Sellos ----------
+
+    /** Tira con los sellos sobre la barra; tocar fuera la cierra. */
+    private void openStampPicker() {
+        if (stampPicker != null) return;
+        draw.setActive(false);
+        FrameLayout shade = new FrameLayout(this);
+        shade.setClickable(true);
+        shade.setOnClickListener(v -> { Sounds.play(Sounds.BACK); closeStampPicker(); });
+        LinearLayout strip = new LinearLayout(this);
+        strip.setBackgroundColor(Color.WHITE);
+        strip.setPadding(dp(6), dp(4), dp(6), dp(4));
+        strip.setClickable(true);
+        for (int i = 0; i < Stamps.COUNT; i++) {
+            final int kind = i;
+            ToolButton t = addTool(strip, ToolButton.STAMP_FIRST + i);
+            t.setChosen(i == stampKind);
+            t.setOnClickListener(v -> { Sounds.play(Sounds.TAP); closeStampPicker(); startStamps(kind); });
+        }
+        View top = new View(this);
+        top.setBackgroundColor(Color.BLACK);
+        FrameLayout.LayoutParams lineLp = new FrameLayout.LayoutParams(-1, dp(2), Gravity.BOTTOM);
+        lineLp.bottomMargin = dp(84);
+        shade.addView(strip, new FrameLayout.LayoutParams(-1, dp(84), Gravity.BOTTOM));
+        shade.addView(top, lineLp);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, -1);
+        lp.bottomMargin = dp(66); // la barra de herramientas sigue a la vista y usable debajo
+        stampPicker = shade;
+        root.addView(shade, lp);
+    }
+
+    private void closeStampPicker() {
+        if (stampPicker == null) return;
+        root.removeView(stampPicker);
+        stampPicker = null;
+        draw.setActive(!overlayOpen());
+        Eink.cleanRefresh(this);
+    }
+
+    private void startStamps(int kind) {
+        stampKind = kind;
+        erasing = false;
+        draw.setPen(selectedPenWidth);
+        choose(stampButton);
+        if (stampPad == null) {
+            stampPad = new StampPad(this);
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, -1);
+            lp.bottomMargin = dp(66);
+            root.addView(stampPad, 1, lp); // encima del lienzo, debajo de galería, cámara y menús
+        }
+        stampPad.setVisibility(View.VISIBLE);
+    }
+
+    private void stopStamps() {
+        closeStampPicker();
+        stampKind = -1;
+        if (stampPad != null) stampPad.setVisibility(View.GONE);
+    }
+
+    /**
+     * Capa transparente sobre el lienzo mientras hay un sello elegido: tocar pone el sello
+     * ahí; arrastrar antes de soltar lo hace más grande (se ve su contorno mientras).
+     */
+    private final class StampPad extends View {
+        private final android.graphics.Paint guide = new android.graphics.Paint();
+        private final android.graphics.Path outline = new android.graphics.Path();
+        private float cx, cy, radius;
+        private boolean pressing;
+
+        StampPad(android.content.Context c) {
+            super(c);
+            guide.setStyle(android.graphics.Paint.Style.STROKE);
+            guide.setStrokeWidth(dp(1.5f));
+            guide.setColor(Color.BLACK);
+            guide.setPathEffect(new android.graphics.DashPathEffect(new float[]{dp(4), dp(4)}, 0));
+        }
+
+        private float size() {
+            float max = Math.min(getWidth(), getHeight()) / 2f - dp(4);
+            return Math.max(dp(55), Math.min(max, radius)); // un toque: tamaño mediano; arrastrar: más grande
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent e) {
+            if (stampKind < 0 || draw.isDrawing()) return true;
+            switch (e.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    cx = e.getX(); cy = e.getY(); radius = 0; pressing = true;
+                    invalidate();
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    if (!pressing) return true;
+                    radius = (float) Math.hypot(e.getX() - cx, e.getY() - cy);
+                    invalidate();
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    if (!pressing) return true;
+                    pressing = false;
+                    invalidate();
+                    Sounds.play(Sounds.STAMP);
+                    draw.stamp(Stamps.make(stampKind, cx, cy, size()));
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                    pressing = false;
+                    invalidate();
+                    return true;
+            }
+            return true;
+        }
+
+        @Override
+        protected void onDraw(android.graphics.Canvas c) {
+            if (!pressing || stampKind < 0) return;
+            float r = size();
+            for (java.util.List<android.graphics.PointF> s : Stamps.unit(stampKind)) {
+                outline.reset();
+                for (int i = 0; i < s.size(); i++) {
+                    float x = cx + s.get(i).x * r, y = cy + s.get(i).y * r;
+                    if (i == 0) outline.moveTo(x, y); else outline.lineTo(x, y);
+                }
+                c.drawPath(outline, guide);
+            }
+        }
+    }
+
 
     private ToolButton addTool(LinearLayout bar, int icon) {
         ToolButton t = new ToolButton(this, icon);

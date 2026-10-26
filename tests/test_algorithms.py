@@ -78,12 +78,20 @@ public class AlgorithmChecks {
     FunFilters.apply(blanco,4).getPixels(one,0,1,0,0,1,1);require(one[0]==Color.BLACK,"blanco se vuelve negro");
    }
   }
+  require(Stamps.NAMES.length==Stamps.COUNT,"un nombre por sello");
+  for(int k=0;k<Stamps.COUNT;k++){
+   List<List<PointF>> u=Stamps.unit(k);boolean inside=!u.isEmpty();for(List<PointF> st:u){inside&=st.size()>=2;for(PointF q:st)inside&=Math.abs(q.x)<=1.001f&&Math.abs(q.y)<=1.001f;}
+   require(inside,"sello "+Stamps.NAMES[k]+" cabe en su caja");
+   List<List<PointF>> m=Stamps.make(k,500,300,100);PointF q0=u.get(0).get(0),m0=m.get(0).get(0);
+   require(m.size()==u.size()&&Math.abs(m0.x-(500+q0.x*100))<.01f&&Math.abs(m0.y-(300+q0.y*100))<.01f,"sello "+Stamps.NAMES[k]+" se coloca y escala");
+  }
+  for(int k:new int[]{Stamps.STAR,Stamps.HEART,Stamps.CLOUD}){List<PointF> o=Stamps.unit(k).get(0);PointF f=o.get(0),l=o.get(o.size()-1);require(Math.hypot(f.x-l.x,f.y-l.y)<.01,"contorno de "+Stamps.NAMES[k]+" cerrado");}
  }
 }'''
 }
 for name,content in files.items():
  p=out/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(content,encoding='utf-8')
-sources=list(out.rglob('*.java'))+[project/'src/mx/dibujos/kiosko/ShapeSnap.java',project/'src/mx/dibujos/kiosko/FunFilters.java',project/'src/mx/dibujos/kiosko/DrawingHistory.java']
+sources=list(out.rglob('*.java'))+[project/'src/mx/dibujos/kiosko/ShapeSnap.java',project/'src/mx/dibujos/kiosko/FunFilters.java',project/'src/mx/dibujos/kiosko/DrawingHistory.java',project/'src/mx/dibujos/kiosko/Stamps.java']
 jdk=next(Path('C:/tmp/hb').glob('jdk-17*'))/'bin'
 subprocess.run([str(jdk/'javac.exe'),'-encoding','UTF-8','-d',str(out/'classes')]+[str(p) for p in sources],check=True)
 subprocess.run([str(jdk/'java.exe'),'-cp',str(out/'classes'),'mx.dibujos.kiosko.AlgorithmChecks'],check=True)

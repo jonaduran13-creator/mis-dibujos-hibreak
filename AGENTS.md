@@ -213,3 +213,22 @@ Herramientas: JADX 1.5.6 en `C:\tmp\hb\jadx` (oficial, sha256 545ea2be…); cód
 - **Recommit** (`NoteView.enableRecommitMode(delay, modo)` → repinta zonas con un modo limpio) existe pero
   ni la app de imágenes de Bigme lo usa; no se activó porque su efecto solo se ve en la tinta física.
 - `--ei testDelay N` (solo adb): espera antes de `testPath`, para probar trazos justo tras una acción.
+
+## Versión 2.3 (versionCode 38) — puntas y sellos
+
+- **Puntas nativas** (`Lienzo.setBrush`, `BRUSH_*`): `handwritten.jar` trae `Pencil` (textura de grafito,
+  `PencilPaint`), `BrushPen` (tipo 103, ancho según velocidad) y `DashPen` (tipo 104) que ninguna app de
+  Bigme usa. `XrzLienzo.setPen` crea la punta elegida; todas aceptan `setStrokeWidthRange(w-1, w)`.
+  `BrushPen` va con ancho automático entre w/3 y 2w; `DashPen` con `DashPathEffect` proporcional al
+  grosor (el 5,5 de fábrica se ve como línea sólida con el dedo). Stubs en `stubs/com/xrz`.
+  `DrawView` (Mandala) solo imita el punteado (`Stroke.dashed`; se ve punteado al soltar).
+  Preferencia `brush`. Probado en el aparato: las cuatro se pintan con el motor rápido.
+- **Sellos** (`Stamps`): 9 dibujos en caja -1..1 como listas de trazos. `Lienzo.stamp(trazos)` en
+  coordenadas de la vista: `XrzLienzo` los mete al motor con `onInputTouch` (puntos cada 6 px, en
+  coordenadas de pantalla vía `getLocationOnScreen`); `DrawView` los agrega como trazos. Antes llama
+  `onStrokeStarted` → el historial guarda la imagen y Deshacer quita el sello entero.
+  En `MainActivity`: botón Sellos (grupo de `penButtons`) abre `stampPicker` (tira sobre la barra; tocar
+  fuera la cierra); `StampPad` es una capa transparente sobre el lienzo que solo existe con un sello
+  elegido (toque = radio 55 dp; arrastrar = más grande, con contorno punteado de guía). Elegir grosor o
+  goma, o cambiar Mandala, sale de sellos (`stopStamps`). Pruebas: `tests/test_algorithms.py` (57).
+

@@ -12,7 +12,8 @@ import android.util.Log;
  */
 public final class Sounds {
     public static final int TAP = 0, PEN_S = 1, PEN_M = 2, PEN_L = 3, ERASER = 4, UNDO = 5,
-            NEW_PAGE = 6, CAMERA = 7, SHUTTER = 8, SNAP = 9, GALLERY = 10, BACK = 11, OPEN = 12;
+            NEW_PAGE = 6, CAMERA = 7, SHUTTER = 8, SNAP = 9, GALLERY = 10, BACK = 11, OPEN = 12,
+            BRUSH = 13, STAMP = 14;
 
     private static final int RATE = 22050;
     private static final float VOLUME = 0.45f; // campanitas suaves pero audibles en la bocina del HiBreak
@@ -20,7 +21,7 @@ public final class Sounds {
     private static final float C5 = 523.25f, D5 = 587.33f, E5 = 659.25f, G5 = 783.99f, A5 = 880f, C6 = 1046.5f, E6 = 1318.5f;
     private static final float A4 = 440f, G4 = 392f;
 
-    private static final AudioTrack[] tracks = new AudioTrack[13];
+    private static final AudioTrack[] tracks = new AudioTrack[15];
 
     private Sounds() {}
 
@@ -40,6 +41,8 @@ public final class Sounds {
                 tracks[SNAP] = make(chord(new float[]{G5, C6, E6}, new float[]{0, 0.06f, 0.12f}, 0.8f));
                 tracks[GALLERY] = make(chord(new float[]{C5, G5}, new float[]{0, 0.1f}, 0.6f));
                 tracks[BACK] = make(chord(new float[]{G5, C5}, new float[]{0, 0.1f}, 0.6f));
+                tracks[BRUSH] = make(chord(new float[]{A5, C6}, new float[]{0, 0.07f}, 0.5f));
+                tracks[STAMP] = make(chord(new float[]{C6, G5}, new float[]{0, 0.05f}, 0.45f));
                 tracks[OPEN] = make(chord(new float[]{C5, E5, G5}, new float[]{0, 0.12f, 0.24f}, 1.0f));
             } catch (Throwable t) {
                 Log.w("MisDibujos", "sonidos", t);

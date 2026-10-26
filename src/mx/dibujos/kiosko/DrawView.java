@@ -91,6 +91,46 @@ public class DrawView extends View implements Lienzo {
         eraser = false;
     }
 
+    /** Avisa los puntos de un trazo completo (sello o figura perfecta) para la película. */
+    private void ink(java.util.List<android.graphics.PointF> s) {
+        if (listener == null || injecting) return;
+        for (int i = 0; i < s.size(); i++)
+            listener.onInk(i == 0 ? INK_DOWN : INK_MOVE, s.get(i).x, s.get(i).y, PRESSURE_MID);
+        android.graphics.PointF last = s.get(s.size() - 1);
+        listener.onInk(INK_UP, last.x, last.y, PRESSURE_MID);
+    }
+
+    private boolean injecting;
+
+    /** La película pinta como si fuera el dedo, pero sin figura perfecta ni avisos. */
+    @Override
+    public void inject(int action, float x, float y, int pressure) {
+        if (canvas == null) return;
+        if (action == INK_DOWN) {
+            current = new Stroke(penWidth, eraser, brush == BRUSH_DASH);
+            current.points.add(new android.graphics.PointF(x, y));
+            current.path.moveTo(x, y);
+            current.path.lineTo(x + 0.1f, y + 0.1f);
+            lastX = x;
+            lastY = y;
+            applyPaint(current);
+            segment(x, y, x + .1f, y + .1f);
+            invalidateAround(x, y, x, y);
+        } else if (current != null && action == INK_MOVE) {
+            applyPaint(current);
+            segment(lastX, lastY, x, y);
+            current.path.lineTo(x, y);
+            current.points.add(new android.graphics.PointF(x, y));
+            invalidateAround(Math.min(lastX, x), Math.min(lastY, y), Math.max(lastX, x), Math.max(lastY, y));
+            lastX = x;
+            lastY = y;
+        } else if (current != null && action == INK_UP) {
+            injecting = true;
+            finishStroke();
+            injecting = false;
+        }
+    }
+
     @Override
     public void stamp(java.util.List<java.util.List<android.graphics.PointF>> shape) {
         if (canvas == null || !active || current != null) return;
@@ -101,6 +141,7 @@ public class DrawView extends View implements Lienzo {
             st.path.moveTo(s.get(0).x, s.get(0).y);
             for (android.graphics.PointF p : s) { st.path.lineTo(p.x, p.y); st.points.add(p); }
             strokes.add(st);
+            ink(s);
         }
         while (strokes.size() > MAX_UNDO) drawStroke(new Canvas(committed), strokes.remove(0));
         rebuild();
@@ -267,6 +308,7 @@ public class DrawView extends View implements Lienzo {
                 applyPaint(current);
                 segment(x,y,x+.1f,y+.1f);
                 invalidateAround(x, y, x, y);
+                if (listener != null) listener.onInk(INK_DOWN, x, y, PRESSURE_MID);
                 return true;
             }
             case MotionEvent.ACTION_MOVE: {
@@ -282,6 +324,7 @@ public class DrawView extends View implements Lienzo {
                     segment(lastX,lastY,x,y);
                     current.path.lineTo(x, y);
                     current.points.add(new android.graphics.PointF(x,y));
+                    if (listener != null) listener.onInk(INK_MOVE, x, y, PRESSURE_MID);
                     lastX = x;
                     lastY = y;
                     minX = Math.min(minX, x); maxX = Math.max(maxX, x);
@@ -304,12 +347,14 @@ public class DrawView extends View implements Lienzo {
     private void finishStroke() {
         if (current == null) return;
         boolean corrected=false;
-        if(assisted&&!current.eraser){
+        if(listener!=null&&!injecting)listener.onInk(INK_UP,lastX,lastY,PRESSURE_MID);
+        if(assisted&&!current.eraser&&!injecting){
             java.util.List<android.graphics.PointF> shape=ShapeSnap.recognize(current.points);
             if(shape!=null){
                 current.path.reset();current.path.moveTo(shape.get(0).x,shape.get(0).y);
                 for(int i=1;i<shape.size();i++)current.path.lineTo(shape.get(i).x,shape.get(i).y);
                 corrected=true;Sounds.play(Sounds.SNAP);
+                if(listener!=null){listener.onInkReplaced();ink(shape);}
             }
         }
         boolean dashed=current.dashed;
@@ -321,7 +366,7 @@ public class DrawView extends View implements Lienzo {
         if (strokes.size() > MAX_UNDO) {
             drawStroke(new Canvas(committed), strokes.remove(0));
         }
-        if (listener != null) listener.onStrokeFinished();
+        if (listener != null && !injecting) listener.onStrokeFinished();
     }
 
     private void invalidateAround(float x0, float y0, float x1, float y1) {

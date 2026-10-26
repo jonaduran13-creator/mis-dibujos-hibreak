@@ -10,7 +10,25 @@ public interface Lienzo {
         void onStrokeFinished();
         /** El lienzo se repintó completo (deshacer, figura perfecta…): la tinta puede borrar los botones. */
         default void onRedrawn() {}
+        /** Cada punto de tinta que se pinta (INK_DOWN/MOVE/UP, coordenadas de la vista): película y música. */
+        default void onInk(int action, float x, float y, int pressure) {}
+        /** La figura perfecta reemplazó al último trazo (sus puntos llegan después por onInk). */
+        default void onInkReplaced() {}
+        /** El trazo se detuvo porque iba a cruzar una pared (laberinto). */
+        default void onBlocked() {}
     }
+
+    int INK_DOWN = 0, INK_MOVE = 1, INK_UP = 2;
+    /** Presión cuando no se sabe el tamaño del dedo (el motor usa 1000..4096). */
+    int PRESSURE_MID = 2548;
+
+    /** Decide si el trazo puede pasar de un punto a otro (paredes del laberinto). */
+    interface Gate { boolean allow(float x0, float y0, float x1, float y1); }
+    default void setGate(Gate gate) {}
+    /** Pinta un punto como si fuera el dedo, sin avisar al Listener ni corregir figuras (película). */
+    void inject(int action, float x, float y, int pressure);
+    /** Limpieza suave: tras una pausa se repinta en GU16 solo la zona dibujada (sin parpadeo global). */
+    default void setSoftClean(boolean on) {}
 
     View view();
     void setListener(Listener l);

@@ -34,9 +34,10 @@ import com.xrz.SimplePen;
  */
 public class XrzLienzo implements Lienzo {
     private static final String TAG = "MisDibujosXrz";
-    private static final int DOWN = 1, MOVE = 2, UP = 3, TOOL_FINGER = 2, PRESSURE = 2048;
+    private static final int DOWN = 1, MOVE = 2, UP = 3, TOOL_FINGER = 2;
 
     private final NoteView note;
+    private final FingerSize finger;
     private final int screenWidth;
     private Listener listener;
     private boolean dirty;
@@ -60,6 +61,7 @@ public class XrzLienzo implements Lienzo {
             if (r - l != or - ol || b - t != ob - ot) note.post(this::flushPending);
         });
         screenWidth = c.getResources().getDisplayMetrics().widthPixels;
+        finger = new FingerSize(c.getSharedPreferences("kiosko", Context.MODE_PRIVATE), () -> setPen(penWidth));
         setPen(5);
         Log.i(TAG, "motor de Bigme " + note.getVersion());
     }
@@ -79,15 +81,17 @@ public class XrzLienzo implements Lienzo {
      * (Pencil, con textura de lápiz), pincel (BrushPen, el ancho cambia con la velocidad)
      * y punteado (DashPen). Todas se pintan igual de rápido que el lápiz normal.
      */
+    private float penWidth = 5;
+
     @Override
     public void setPen(float width) {
+        penWidth = width;
         int w = Math.max(2, Math.round(width));
         BasePen pen;
         switch (brush) {
             case BRUSH_PENCIL:
                 pen = new Pencil(w);
-                pen.setAutoStrokeWidthEnabled(false);
-                pen.setStrokeWidthRange(w - 1, w); // el motor exige máximo > mínimo
+                pressured(pen, w);
                 break;
             case BRUSH_BRUSH:
                 pen = new BrushPen(w);
@@ -104,33 +108,50 @@ public class XrzLienzo implements Lienzo {
             }
             default:
                 pen = new SimplePen();
-                pen.setAutoStrokeWidthEnabled(false);
-                pen.setStrokeWidthRange(w - 1, w);
+                pressured(pen, w);
         }
         pen.setStrokeWidth(w);
         note.setPen(pen);
         erasing = false;
     }
 
+    /**
+     * Con el tamaño del dedo conocido, el grosor varía entre 0.6 y 1.5 veces el elegido
+     * (dedo plano: grueso; punta del dedo: fino). Si no, grosor fijo: el motor exige máximo > mínimo.
+     */
+    private void pressured(BasePen pen, int w) {
+        if (finger.active()) {
+            pen.setAutoStrokeWidthEnabled(true);
+            pen.setStrokeWidthRange(Math.max(1, Math.round(w * .6f)), Math.max(2, Math.round(w * 1.5f)));
+        } else {
+            pen.setAutoStrokeWidthEnabled(false);
+            pen.setStrokeWidthRange(w - 1, w);
+        }
+    }
+
     /** Cada trazo del sello entra al motor como si fuera el dedo, en puntos cercanos. */
     @Override
     public void stamp(List<List<PointF>> strokes) {
         if (!active || drawing || replacing) return;
-        int[] at = new int[2];
         note.getLocationOnScreen(at);
         if (listener != null) listener.onStrokeStarted();
         for (List<PointF> s : strokes) {
             if (s.isEmpty()) continue;
             PointF a = s.get(0);
-            feed(DOWN, a.x + at[0], a.y + at[1]);
+            feed(DOWN, a.x + at[0], a.y + at[1], PRESSURE_MID);
+            ink(INK_DOWN, a.x + at[0], a.y + at[1], PRESSURE_MID);
             for (int i = 1; i < s.size(); i++) {
                 PointF b = s.get(i);
                 int steps = Math.max(1, (int) (Math.hypot(b.x - a.x, b.y - a.y) / 6));
-                for (int k = 1; k <= steps; k++)
-                    feed(MOVE, a.x + (b.x - a.x) * k / steps + at[0], a.y + (b.y - a.y) * k / steps + at[1]);
+                for (int k = 1; k <= steps; k++) {
+                    float x = a.x + (b.x - a.x) * k / steps + at[0], y = a.y + (b.y - a.y) * k / steps + at[1];
+                    feed(MOVE, x, y, PRESSURE_MID);
+                    ink(INK_MOVE, x, y, PRESSURE_MID);
+                }
                 a = b;
             }
-            feed(UP, a.x + at[0], a.y + at[1]);
+            feed(UP, a.x + at[0], a.y + at[1], PRESSURE_MID);
+            ink(INK_UP, a.x + at[0], a.y + at[1], PRESSURE_MID);
         }
         dirty = true;
         if (listener != null) listener.onStrokeFinished();
@@ -157,9 +178,17 @@ public class XrzLienzo implements Lienzo {
         }
     }
 
+    /** Lo que se cargó antes de que el lienzo tuviera tamaño ya no vale si llega otra carga. */
+    private void dropPending() {
+        pendingLayers = false;
+        pendingInk = null;
+        pendingBackground = null;
+    }
+
     @Override
     public void clear() {
         generation++;
+        dropPending();
         note.clear(true);
         note.setBackground(blank(), true);
         shortenInputBlock();
@@ -196,6 +225,7 @@ public class XrzLienzo implements Lienzo {
             pendingBackground = paper;
             pendingLayers = true;
         } else {
+            dropPending();
             applyLayers(ink, paper);
         }
         dirty = modified;
@@ -269,9 +299,11 @@ public class XrzLienzo implements Lienzo {
 
     private void setBackground(Bitmap b) {
         if (note.getWidth() == 0) {
+            dropPending();
             pendingBackground = b;
             return;
         }
+        dropPending();
         note.setBackground(fit(b), true);
         shortenInputBlock();
         Log.i(TAG, "fondo " + b.getWidth() + "x" + b.getHeight());
@@ -381,33 +413,93 @@ public class XrzLienzo implements Lienzo {
         return (rotation*90+270)%360;
     }
 
-    private void feed(int action, float rawX, float rawY) {
+    private void feed(int action, float rawX, float rawY, int pressure) {
         int angle=panelAngle();float x=rawX,y=rawY;
         int w=note.getResources().getDisplayMetrics().widthPixels;
         int h=note.getResources().getDisplayMetrics().heightPixels;
         if(angle==270){x=rawY;y=w-rawX;}
         else if(angle==180){x=w-rawX;y=h-rawY;}
         else if(angle==90){x=h-rawY;y=rawX;}
-        note.onInputTouch(action,Math.round(x),Math.round(y),PRESSURE,TOOL_FINGER);
+        note.onInputTouch(action,Math.round(x),Math.round(y),pressure,TOOL_FINGER);
+        int px=Math.round(x),py=Math.round(y);
+        if(touched.isEmpty())touched.set(px,py,px+1,py+1);else touched.union(px,py);
+        note.removeCallbacks(softCleanNow);
+        if(action==UP&&softClean)note.postDelayed(softCleanNow,SOFT_CLEAN_DELAY);
     }
 
-    private void down(float x, float y) {
+    /** Posición de la vista en pantalla al empezar el trazo: el Listener recibe coordenadas de la vista. */
+    private final int[] at = new int[2];
+
+    private void ink(int action, float rawX, float rawY, int pressure) {
+        if (listener != null) listener.onInk(action, rawX - at[0], rawY - at[1], pressure);
+    }
+
+    private Gate gate;
+    @Override public void setGate(Gate g) { gate = g; }
+
+    /**
+     * Limpieza suave. El trazo rápido se pinta con la forma de onda de escritura (1029), que deja
+     * bordes grises y sombras. NoteView trae enableRecommitMode para repintar después, pero en este
+     * firmware (handwrittenservice v1.2.10) no hace nada: se probó con varias pausas y modos y el
+     * servicio nunca envía el repintado. Así que lo hacemos nosotros con lo mismo que usa por
+     * dentro: inValidateNoteView del rectángulo dibujado en GU16 (grises limpios, sin destello).
+     */
+    private boolean softClean = true;
+    private static final long SOFT_CLEAN_DELAY = 800;
+    private final android.graphics.Rect touched = new android.graphics.Rect();
+    private final Runnable softCleanNow = this::softCleanNow;
+
+    @Override public void setSoftClean(boolean on) { softClean = on; if (!on) note.removeCallbacks(softCleanNow); }
+
+    private void softCleanNow() {
+        if (drawing || touched.isEmpty() || !softClean) return;
+        android.graphics.Rect r = new android.graphics.Rect(touched);
+        touched.setEmpty();
+        r.inset(-48, -48); // el grosor del trazo y la goma (el motor recorta al panel)
+        try {
+            note.inValidateNoteView(new com.xrz.FlushInfo(r, true, false, com.xrz.FlushInfo.EINK_GU16_RECT_MODE));
+        } catch (Throwable t) {
+            softClean = false;
+            Log.w(TAG, "limpieza suave no disponible", t);
+        }
+    }
+
+    @Override
+    public void inject(int action, float x, float y, int pressure) {
+        if (action == INK_DOWN) note.getLocationOnScreen(at);
+        feed(action == INK_DOWN ? DOWN : action == INK_MOVE ? MOVE : UP, x + at[0], y + at[1], pressure);
+    }
+
+    private int lastPressure = PRESSURE_MID;
+
+    private void down(float x, float y, int pressure) {
+        note.getLocationOnScreen(at);
         if(listener!=null)listener.onStrokeStarted();
         drawing = true;
         snapped = false;
         points.clear();
         lastRawX = holdX = x;
         lastRawY = holdY = y;
+        lastPressure = pressure;
         points.add(new PointF(x, y));
-        feed(DOWN, x, y);
+        feed(DOWN, x, y, pressure);
+        ink(INK_DOWN, x, y, pressure);
         armSnap();
     }
 
-    private void move(float x, float y) {
-        feed(MOVE, x, y);
+    private void move(float x, float y, int pressure) {
+        if (gate != null && !gate.allow(lastRawX - at[0], lastRawY - at[1], x - at[0], y - at[1])) {
+            // Iba a cruzar una pared: el trazo termina justo antes; lo que sigue de este toque se ignora.
+            feedUp();
+            if (listener != null) listener.onBlocked();
+            return;
+        }
+        feed(MOVE, x, y, pressure);
+        ink(INK_MOVE, x, y, pressure);
         points.add(new PointF(x, y));
         lastRawX = x;
         lastRawY = y;
+        lastPressure = pressure;
         // Temblores mínimos con el dedo quieto no cuentan como movimiento.
         if (Math.hypot(x - holdX, y - holdY) > HOLD_SLOP) {
             holdX = x;
@@ -423,9 +515,11 @@ public class XrzLienzo implements Lienzo {
 
     private void feedUp() {
         note.removeCallbacks(snap);
-        feed(UP, lastRawX, lastRawY);
+        feed(UP, lastRawX, lastRawY, lastPressure);
+        ink(INK_UP, lastRawX, lastRawY, lastPressure);
         drawing = false;
         dirty = true;
+        finger.endStroke();
         if (listener != null) listener.onStrokeFinished();
     }
 
@@ -453,17 +547,21 @@ public class XrzLienzo implements Lienzo {
         replacing = false;
         if(!active)return; // conservar el trazo original si ya hay otra pantalla encima
         note.revertPrev(); // quita el trazo a mano…
+        if (listener != null) listener.onInkReplaced();
         PointF first = shape.get(0);
         lastRawX = first.x;
         lastRawY = first.y;
-        feed(DOWN, first.x, first.y); // …y lo dibuja perfecto, como un trazo más (se puede deshacer)
+        feed(DOWN, first.x, first.y, PRESSURE_MID); // …y lo dibuja perfecto, como un trazo más (se puede deshacer)
+        ink(INK_DOWN, first.x, first.y, PRESSURE_MID);
         for (int i = 1; i < shape.size(); i++) {
             PointF p = shape.get(i);
-            feed(MOVE, p.x, p.y);
+            feed(MOVE, p.x, p.y, PRESSURE_MID);
+            ink(INK_MOVE, p.x, p.y, PRESSURE_MID);
             lastRawX = p.x;
             lastRawY = p.y;
         }
-        feed(UP, lastRawX, lastRawY);
+        feed(UP, lastRawX, lastRawY, PRESSURE_MID);
+        ink(INK_UP, lastRawX, lastRawY, PRESSURE_MID);
         Sounds.play(Sounds.SNAP);
         if (listener != null) {
             listener.onStrokeFinished();
@@ -479,14 +577,14 @@ public class XrzLienzo implements Lienzo {
             case MotionEvent.ACTION_DOWN:
                 if (replacing) return true;
                 v.requestUnbufferedDispatch(e); // cada movimiento llega al instante, sin esperar al cuadro
-                down(e.getRawX(), e.getRawY());
+                down(e.getRawX(), e.getRawY(), finger.begin(e.getTouchMajor()));
                 return true;
             case MotionEvent.ACTION_MOVE:
                 if (!drawing) return true;
-                for (int i = 0; i < e.getHistorySize(); i++) {
-                    move(e.getHistoricalX(0, i) + dx, e.getHistoricalY(0, i) + dy);
+                for (int i = 0; i < e.getHistorySize() && drawing; i++) {
+                    move(e.getHistoricalX(0, i) + dx, e.getHistoricalY(0, i) + dy, finger.pressure(e.getHistoricalTouchMajor(0, i)));
                 }
-                move(e.getRawX(), e.getRawY());
+                if (drawing) move(e.getRawX(), e.getRawY(), finger.pressure(e.getTouchMajor()));
                 return true;
             case MotionEvent.ACTION_POINTER_UP:
                 if (e.getActionIndex() == 0 && drawing) feedUp();
@@ -509,15 +607,15 @@ public class XrzLienzo implements Lienzo {
      * Con hold, se queda "quieto" al final para probar la figura perfecta.
      */
     public void testPath(float[] xy, boolean hold) {
-        down(xy[0], xy[1]);
-        for (int i = 2; i + 1 < xy.length; i += 2) {
+        down(xy[0], xy[1], PRESSURE_MID);
+        for (int i = 2; i + 1 < xy.length && drawing; i += 2) {
             float x0 = xy[i - 2], y0 = xy[i - 1], x1 = xy[i], y1 = xy[i + 1];
-            for (int k = 1; k <= 10; k++) move(x0 + (x1 - x0) * k / 10, y0 + (y1 - y0) * k / 10);
+            for (int k = 1; k <= 10 && drawing; k++) move(x0 + (x1 - x0) * k / 10, y0 + (y1 - y0) * k / 10, PRESSURE_MID);
         }
         if (hold) {
             // Igual que un dedo quieto: se espera el tiempo de la figura perfecta y luego se suelta.
             note.postDelayed(() -> { if (drawing) feedUp(); }, HOLD_TO_SNAP + 100);
-        } else {
+        } else if (drawing) {
             feedUp();
         }
     }

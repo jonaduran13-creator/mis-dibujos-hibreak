@@ -24,6 +24,15 @@ engine for near real-time finger drawing. Spanish UI.*
   **corazón**, **estrella** (de contorno o de un solo trazo) o **luna**, se corrige. Si hay duda,
   el dibujo se queda como está (se puede apagar: Asistido / Libre).
 - **Mandala**: cada trazo se repite 12 veces en simetría.
+- **Película**: vuelve a dibujar la hoja trazo por trazo, con tinta real (máx. 25 s). Se guarda con el dibujo.
+- **Dibujo musical**: cada trazo suena según su altura, en escala pentatónica (botón Música).
+- **Laberintos** desde el inicio: se recorren dibujando (el trazo se detiene en las paredes) o con
+  una **canica** que rueda inclinando el aparato. Crecen de tamaño al ganar.
+- **Agitar** el aparato ofrece una hoja nueva (la anterior queda guardada).
+- **Presión con el dedo**: si el panel reporta el tamaño del dedo, apoyarlo más hace la línea más gruesa
+  (se calibra solo con los primeros trazos).
+- **Limpieza suave**: tras cada pausa se repinta en grises limpios solo la zona dibujada, así casi no hace
+  falta el refresco completo que parpadea.
 - **Fotos** con la cámara selfie o trasera, filtros (Ojotes, Globo, Espejo, Invertido) y
   "pintar sobre la foto" como hoja para colorear (contornos).
 - **Pianito** de una octava con cinco sonidos sintetizados.

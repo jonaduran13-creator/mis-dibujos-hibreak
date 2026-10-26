@@ -11,6 +11,15 @@ La actualización conserva la firma y el modo kiosco. No requiere internet.
   en la misma carpeta de siempre. Sus guías punteadas no se guardan en la imagen.
 - Punta (el botón después de la goma): cada toque cambia entre Lápiz, Grafito, Pincel y
   Puntos, con el grosor elegido. Se recuerda al apagar.
+- Película: vuelve a dibujar la hoja desde el principio, trazo por trazo (y con música si
+  está prendida). Tocar la pantalla la detiene y deja el dibujo como estaba. Los dibujos
+  viejos empiezan su película desde como estaban al abrirlos.
+- Música: prendida, cada trazo suena; arriba agudo y abajo grave.
+- Agitar el aparato tres veces seguidas ofrece Nueva hoja o Volver (se cierra solo a los 8 s).
+- Laberinto (en el inicio): llevar la línea de la carita a la estrella; si choca con una pared,
+  el trazo se detiene y suena suave. El botón Canica (en lugar de Mandala) pone una canica que se
+  mueve inclinando el aparato. Al ganar sale una estrella y el siguiente laberinto es más grande
+  (5 niveles). Nueva hace otro laberinto; Inicio sale.
 - Sellos: abre una tira con nueve dibujitos. Elige uno y toca la hoja para ponerlo; si
   arrastras el dedo antes de soltar, sale más grande (se ve su contorno punteado). Usa la
   punta elegida, funciona en Mandala (sale 12 veces) y Deshacer lo quita entero. Para volver

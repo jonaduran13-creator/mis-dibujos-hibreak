@@ -232,3 +232,37 @@ Herramientas: JADX 1.5.6 en `C:\tmp\hb\jadx` (oficial, sha256 545ea2be…); cód
   elegido (toque = radio 55 dp; arrastrar = más grande, con contorno punteado de guía). Elegir grosor o
   goma, o cambiar Mandala, sale de sellos (`stopStamps`). Pruebas: `tests/test_algorithms.py` (57).
 
+## Versión 2.4 (versionCode 39) — película, música, laberintos, presión, limpieza suave
+
+- **Eventos de tinta**: `Lienzo.Listener.onInk(acción, x, y, presión)` en coordenadas de la vista para cada
+  punto pintado (dedo, figura perfecta, sello), `onInkReplaced()` cuando la figura perfecta reemplaza el
+  trazo y `onBlocked()` cuando una `Gate` corta el trazo. `Lienzo.inject` pinta puntos sin avisar ni corregir.
+- **Película** (`Recording`, `Pelicula`): `MainActivity.onInk` graba trazos (punta, grosor, goma, puntos con
+  presión y tiempo), agrupados por acción como el historial (Deshacer → `undoGroup`). Se guarda en el
+  `.dibujo` (`pelicula.bin` + `inicio.png` si la hoja no empezó en blanco). Máx. 150 000 puntos; al llenarse
+  empieza otra desde la imagen de ese momento. Reproducción: trazos a 2×, pausas ≤ 0.3 s, todo en ≤ 25 s;
+  escudo transparente: tocar la detiene y recarga la imagen final. Dibujos viejos: la película empieza
+  desde la imagen abierta. Mandala o foto nueva reinician la película.
+- **Música** (`Musica`): 12 notas pentatónicas (Do4–Mi6) por altura, pulso tipo marimba, mín. 85 ms entre
+  notas. Preferencia `music`.
+- **Presión** (`FingerSize`): `getevent -lp` muestra `ABS_MT_TOUCH_MAJOR 0–255`. Se aprende el rango con el
+  promedio de cada trazo (log `MisDibujosDedo`); con ≥ 8 trazos y ≥ 6 unidades de diferencia, lápiz y
+  grafito pasan a ancho automático (0.6–1.5×) con presión 1000–4096. **Sin verificar con dedo real.**
+- **Laberinto** (`Maze`, `MazeArt`): backtracking, entrada arriba-izquierda, meta abajo-derecha; papel de la
+  hoja (la goma no lo borra). `Gate` corta el trazo antes de cruzar una pared; `reach` solo cuenta celdas
+  alcanzadas desde la entrada. Niveles 6×3…14×6 (`mazeLevel`). Figuras perfectas apagadas en el laberinto.
+- **Canica** (`MarbleView`): sensor de gravedad (ejes según la rotación), colisión por segmentos de pared,
+  vista en A2 con repintado del cuadrito; `setKeepScreenOn` mientras se juega.
+- **Agitar** (`Shake`): 3 picos alternados > 11 m/s² en 1.3 s; pide confirmación (Nueva / Volver).
+- **Limpieza suave**: `enableRecommitMode` existe en `NoteView` pero en este firmware (handwrittenservice
+  v1.2.10) no hace nada: probado con pausas 300–1000 ms y modos 0/2/1028/1156, el servicio nunca envía el
+  repintado (se ve en logcat `mtk_commit … mode=`). En su lugar `XrzLienzo.softCleanNow` llama
+  `NoteView.inValidateNoteView(new FlushInfo(rect, true, false, 1156))` 0.8 s después del último trazo, sobre
+  el rectángulo dibujado: verificado `mode=0x484` en logcat. El refresco completo pasa de cada 12 a cada 36
+  trazos (o tras borrar/deshacer). Menú de papá/mamá → Limpieza de sombras. **Efecto en el panel sin verificar.**
+- Órdenes por adb (solo shell): `testFilm`, `testMaze`, `testSolve`, `testMarble`, `testShake`,
+  `--ei mazeLevel N`, `--ez softClean`.
+- Corrección: `XrzLienzo` descarta cargas pendientes (de antes de tener tamaño) cuando llega otra carga;
+  antes, al venir de Mandala, el dibujo anterior tapaba el laberinto recién puesto.
+- Pruebas: 104 (`tests/test_algorithms.py`), incluidas película, laberinto, canica y agitar.
+

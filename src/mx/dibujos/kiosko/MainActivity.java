@@ -78,6 +78,20 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     private int stampKind = -1; // sello elegido; -1 = se dibuja normal
     private View stampPicker;
     private StampPad stampPad;
+    private Recording recording = new Recording();
+    /** Imagen desde la que empieza la película (dibujo viejo, Mandala o tras llenarse); null = papel de la hoja. */
+    private Bitmap recordingBase;
+    private boolean musicOn;
+    private ToolButton musicButton, filmButton;
+    private Pelicula film;
+    private View filmShield;
+    private Maze maze;
+    private MarbleView marble;
+    private final Shake shake = new Shake();
+    private android.hardware.SensorManager sensors;
+    private View shakeAsk;
+    private float inkX, inkY;
+    private static final int[][] MAZES = {{6, 3}, {8, 4}, {10, 4}, {12, 5}, {14, 6}};
     private Bitmap beforeCamera;
     private boolean paintingPhoto;
     private PianoMode piano;
@@ -101,12 +115,15 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         dpm = getSystemService(DevicePolicyManager.class);
         admin = AdminReceiver.component(this);
         Sounds.init();
+        Musica.init();
         ShapeSnap.warmUp();
         handlePinExtra(getIntent());
         setupKiosk();
         mandala=prefs.getBoolean("mandala",false);
         assisted=prefs.getBoolean("assisted",true);
         brush=Math.floorMod(prefs.getInt("brush",Lienzo.BRUSH_PEN),Lienzo.BRUSHES);
+        musicOn=prefs.getBoolean("music",true);
+        sensors=getSystemService(android.hardware.SensorManager.class);
         buildUi();
         sleepLogo = new SleepLogo(this, prefs);
         sleepLogo.register();
@@ -248,6 +265,18 @@ public class MainActivity extends Activity implements Lienzo.Listener {
             int wait = i.getIntExtra("testDelay", 800); // ms antes de dibujar (p. ej. justo tras deshacer)
             if (s != null && s.length >= 4) ui.postDelayed(() -> ((XrzLienzo) draw).testPath(s, hold), wait);
         }
+        if (i.hasExtra("softClean")) {
+            boolean on = i.getBooleanExtra("softClean", true);
+            prefs.edit().putBoolean("softClean", on).apply();
+            if (draw != null) draw.setSoftClean(on);
+        }
+        if (i.getBooleanExtra("testFilm", false)) ui.postDelayed(this::playFilm, 300);
+        if (i.getBooleanExtra("testMaze", false)) ui.postDelayed(() -> { closePiano(); hideStart(); startMaze(); }, 300);
+        if (i.getBooleanExtra("testMarble", false)) ui.postDelayed(this::toggleMarble, 300);
+        if (i.hasExtra("mazeLevel")) prefs.edit().putInt("mazeLevel", i.getIntExtra("mazeLevel", 0)).apply();
+        if (i.getBooleanExtra("testSolve", false) && draw instanceof XrzLienzo)
+            ui.postDelayed(() -> { if (maze != null) ((XrzLienzo) draw).testPath(maze.solution(), false); }, 300);
+        if (i.getBooleanExtra("testShake", false)) ui.postDelayed(this::askShakeClear, 300);
         if (i.hasExtra("testScreen")) {
             if (i.getBooleanExtra("testScreen", false)) hideBlackout(); else showBlackout();
         }
@@ -339,11 +368,16 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         if (photoMode != null) photoMode.resume();
         if (draw != null) { draw.onResume(); draw.setActive(!overlayOpen()); }
         if (piano != null && blackout == null) piano.resume();
+        android.hardware.Sensor accel = sensors == null ? null : sensors.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER);
+        if (accel != null) sensors.registerListener(shakeListener, accel, android.hardware.SensorManager.SENSOR_DELAY_UI);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        if (sensors != null) sensors.unregisterListener(shakeListener);
+        if (film != null) film.stop();
+        stopMarble();
         if(draw!=null)draw.setActive(false);
         if (camera != null) camera.pause();
         if (photoMode != null) photoMode.pause();
@@ -377,7 +411,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     }
 
     private boolean overlayOpen() {
-        return stampPicker != null || photoSheet != null || piano != null || camera != null || gallery != null || photoMode != null || startScreen != null || blackout != null;
+        return film != null || shakeAsk != null || marble != null || stampPicker != null || photoSheet != null || piano != null || camera != null || gallery != null || photoMode != null || startScreen != null || blackout != null;
     }
 
     // ---------- Pantalla de inicio: Dibujar o Fotos ----------
@@ -385,7 +419,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     private void showStart() {
         closePhotoSheet();
         if (startScreen != null) return;
-        ui.removeCallbacks(autosave); saveNow(); closePhotoMode(); closePiano();
+        ui.removeCallbacks(autosave); saveNow(); closePhotoMode(); closePiano(); endMaze(); stopStamps();
         draw.setActive(false);
         LinearLayout screen = new LinearLayout(this);
         screen.setOrientation(LinearLayout.VERTICAL); screen.setBackgroundColor(Color.WHITE);
@@ -403,13 +437,13 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         header.addView(Linterna.button(this), new LinearLayout.LayoutParams(dp(72), dp(56)));
         header.addView(new BatteryView(this)); // el kiosco oculta la barra de estado: aquí se ve la batería
         screen.addView(header);
-        int[] icons={ToolButton.PENCIL,ToolButton.CAMERA,ToolButton.PIANO};
-        String[] names={"Dibujar","Fotos","Piano"};
+        int[] icons={ToolButton.PENCIL,ToolButton.CAMERA,ToolButton.PIANO,ToolButton.MARBLE};
+        String[] names={"Dibujar","Fotos","Piano","Laberinto"};
         View.OnClickListener[] actions={v->{Sounds.play(Sounds.OPEN);hideStart();},
-            v->{Sounds.play(Sounds.CAMERA);openPhotoMode();},v->openPiano()};
+            v->{Sounds.play(Sounds.CAMERA);openPhotoMode();},v->openPiano(),v->{Sounds.play(Sounds.OPEN);hideStart();startMaze();}};
         LinearLayout choices=new LinearLayout(this);
         screen.addView(choices,new LinearLayout.LayoutParams(-1,0,1));
-        for(int i=0;i<3;i++) {
+        for(int i=0;i<icons.length;i++) {
             LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);
             if(i>0)lp.leftMargin=dp(12);
             choices.addView(startTile(icons[i],names[i],actions[i]),lp);
@@ -424,7 +458,11 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         tile.setBackground(Ui.surface(Color.WHITE,dp(16),dp(2)));
         ImageView illustration=new ImageView(this);
         illustration.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        illustration.setImageResource(icon==ToolButton.PENCIL?R.drawable.menu_dibujar:icon==ToolButton.CAMERA?R.drawable.menu_fotos:R.drawable.menu_piano);
+        if(icon==ToolButton.MARBLE){
+            // Un laberintito de muestra, dibujado al momento (cambia cada vez).
+            Maze sample=new Maze(5,5,System.nanoTime());sample.layout(dp(220),dp(220),dp(10));
+            illustration.setImageBitmap(MazeArt.render(sample,dp(220),dp(220),getResources().getDisplayMetrics().density));
+        }else illustration.setImageResource(icon==ToolButton.PENCIL?R.drawable.menu_dibujar:icon==ToolButton.CAMERA?R.drawable.menu_fotos:R.drawable.menu_piano);
         illustration.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         tile.addView(illustration,new LinearLayout.LayoutParams(-1,0,1));
         TextView text=new TextView(this);text.setText(label);text.setTextSize(26);text.setTextColor(Color.BLACK);
@@ -520,7 +558,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
             penButtons.add(t);
         }
         final ToolButton eraser = addTool(actions, ToolButton.ERASER);
-        eraser.setOnClickListener(v -> { Sounds.play(Sounds.ERASER); stopStamps(); ensureEditableCanvas(); draw.setEraser(dp(24)); erasing = true; choose(eraser); });
+        eraser.setOnClickListener(v -> { Sounds.play(Sounds.ERASER); stopStamps(); ensureEditableCanvas(); draw.setEraser(eraserWidth()); erasing = true; choose(eraser); });
         penButtons.add(eraser);
 
         // Punta: cada toque pasa a la siguiente (lápiz, grafito, pincel, puntos).
@@ -536,17 +574,27 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         stampButton = addTool(actions, ToolButton.STAMP);
         stampButton.setOnClickListener(v -> { Sounds.play(Sounds.OPEN); openStampPicker(); });
         penButtons.add(stampButton);
+        musicButton = addTool(actions, ToolButton.MUSIC);
+        musicButton.setChosen(musicOn);
+        musicButton.setOnClickListener(v -> {
+            musicOn = !musicOn;
+            prefs.edit().putBoolean("music", musicOn).apply();
+            musicButton.setChosen(musicOn);
+            if (musicOn) Musica.touch(0, 1, true); else Sounds.play(Sounds.TAP);
+        });
 
         undoButton=addTool(actions,ToolButton.UNDO);undoButton.setEnabled(false);
         undoButton.setOnClickListener(v->undoStroke());
-        addTool(actions, ToolButton.NEW_PAGE).setOnClickListener(v -> { Sounds.play(Sounds.NEW_PAGE); newPage(); });
+        addTool(actions, ToolButton.NEW_PAGE).setOnClickListener(v -> { Sounds.play(Sounds.NEW_PAGE); if (maze != null) newMaze(); else newPage(); });
         addTool(actions, ToolButton.CAMERA).setOnClickListener(v -> { Sounds.play(Sounds.CAMERA); openCamera(); });
         ToolButton gal = addTool(actions, ToolButton.GALLERY);
         gal.setOnClickListener(v -> { Sounds.play(Sounds.GALLERY); openGallery(); });
         attachParentHold(gal);
+        filmButton = addTool(actions, ToolButton.FILM);
+        filmButton.setOnClickListener(v -> playFilm());
 
         mandalaButton=addTool(actions,ToolButton.MANDALA);
-        mandalaButton.setChosen(mandala);mandalaButton.setOnClickListener(v->toggleMandala());
+        mandalaButton.setChosen(mandala);mandalaButton.setOnClickListener(v->{if(maze!=null)toggleMarble();else toggleMandala();});
         assistedButton=addTool(actions,assisted?ToolButton.ASSISTED:ToolButton.FREE);assistedButton.setChosen(assisted);
         assistedButton.setOnClickListener(v->{
             assisted=!assisted;prefs.edit().putBoolean("assisted",assisted).apply();draw.setShapeAssist(assisted);
@@ -562,7 +610,8 @@ public class MainActivity extends Activity implements Lienzo.Listener {
 
     /** El motor rápido de Bigme si el sistema lo trae; si no, el lienzo normal de Android. */
     private Lienzo createLienzo(){
-        Lienzo canvas=createRawLienzo();canvas.setShapeAssist(assisted);canvas.setBrush(brush);return canvas;
+        Lienzo canvas=createRawLienzo();canvas.setShapeAssist(assisted);canvas.setBrush(brush);
+        canvas.setSoftClean(prefs.getBoolean("softClean",true));return canvas;
     }
 
     private Lienzo createRawLienzo() {
@@ -591,6 +640,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         parent.removeView(previous);mandala=!mandala;prefs.edit().putBoolean("mandala",mandala).apply();
         draw=createLienzo();draw.setListener(this);selectedPenWidth=dp(5);draw.setPen(selectedPenWidth);
         parent.addView(draw.view(),index,lp);if(picture!=null)draw.loadEditable(picture,pagePaper,false);
+        recording=new Recording();recordingBase=picture==null?null:picture.copy(Bitmap.Config.ARGB_8888,false);
         stopStamps();choose(penButtons.get(1));erasing=false;mandalaButton.setChosen(mandala);
         draw.view().post(()->{draw.onResume();Eink.cleanRefresh(this);});
     }
@@ -631,6 +681,206 @@ public class MainActivity extends Activity implements Lienzo.Listener {
             draw.view().post(()->{if(picture!=null&&restore)restorePicture(picture,false);draw.onResume();draw.setActive(!overlayOpen());});
         });
     }
+
+    // ---------- Película del dibujo ----------
+
+    /** Al abrir un dibujo: su película guardada o, si es viejo, una nueva que empieza desde él. */
+    private void adoptFilm(DrawingProjects.Page page) {
+        if (page.recording != null) {
+            recording = page.recording;
+            recordingBase = page.base;
+        } else {
+            recording = new Recording();
+            recordingBase = page.picture.copy(Bitmap.Config.ARGB_8888, false);
+        }
+    }
+
+    /**
+     * Vuelve a dibujar la hoja desde el principio, con tinta real y (si está prendida) la música.
+     * Tocar la pantalla la detiene y deja el dibujo como estaba.
+     */
+    private void playFilm() {
+        if (film != null || draw.isDrawing() || overlayOpen()) return;
+        if (recording.isEmpty()) { Sounds.play(Sounds.BACK); return; }
+        stopStamps();
+        ui.removeCallbacks(autosave);
+        saveNow();
+        ui.removeCallbacks(cleanCheck);
+        final Bitmap end = draw.snapshot();
+        if (end == null) return;
+        final boolean wasDirty = draw.isDirty();
+        Sounds.play(Sounds.OPEN);
+        if (recordingBase != null) draw.loadEditable(recordingBase, pagePaper, false);
+        else if (pagePaper != null) draw.loadEditable(pagePaper, pagePaper, false);
+        else draw.clear();
+        View shield = new View(this);
+        shield.setClickable(true);
+        shield.setOnClickListener(v -> { if (film != null) film.stop(); });
+        filmShield = shield;
+        root.addView(shield, new FrameLayout.LayoutParams(-1, -1));
+        filmButton.setChosen(true);
+        film = new Pelicula(draw, ui, new ArrayList<>(recording.strokes()), new Pelicula.Callback() {
+            @Override public void pen(Recording.Stroke s) {
+                draw.setBrush(s.brush);
+                if (s.eraser) draw.setEraser(s.width); else draw.setPen(s.width);
+            }
+            @Override public void point(Recording.Stroke s, float x, float y, boolean first) {
+                if (musicOn && !s.eraser) Musica.touch(y, draw.view().getHeight(), first);
+            }
+            @Override public void done(boolean completed) { ui.post(() -> endFilm(completed, end, wasDirty)); }
+        });
+        final Pelicula started = film;
+        // El motor ignora toques un momento después de cambiar el fondo (ver XrzLienzo.shortenInputBlock).
+        ui.postDelayed(() -> { if (film == started) film.start(); }, 450);
+    }
+
+    private void endFilm(boolean completed, Bitmap end, boolean wasDirty) {
+        if (film == null) return;
+        film = null;
+        if (filmShield != null) { root.removeView(filmShield); filmShield = null; }
+        filmButton.setChosen(false);
+        draw.setBrush(brush);
+        if (erasing) draw.setEraser(eraserWidth()); else draw.setPen(selectedPenWidth);
+        if (!completed) draw.loadEditable(end, pagePaper, wasDirty);
+        else if (wasDirty) draw.markDirty(); else draw.markSaved();
+        if (completed) Sounds.play(Sounds.SNAP);
+        draw.setActive(!overlayOpen());
+        repaintBar();
+        cleanNow();
+    }
+
+    // ---------- Laberinto ----------
+
+    private final Lienzo.Gate mazeGate = (x0, y0, x1, y1) -> this.erasing || this.maze == null || !this.maze.crossesWall(x0, y0, x1, y1);
+
+    private void startMaze() {
+        if (mandala) toggleMandala();
+        stopStamps();
+        newPage();
+        buildMaze();
+    }
+
+    private void newMaze() {
+        stopMarble();
+        newPage();
+        buildMaze();
+    }
+
+    /** Laberinto nuevo como papel de la hoja (la goma no lo borra); el tamaño sube al ganar. */
+    private void buildMaze() {
+        View v = draw.view();
+        int w = v.getWidth(), h = v.getHeight();
+        if (w == 0 || h == 0) { v.post(this::buildMaze); return; }
+        int level = Math.max(0, Math.min(MAZES.length - 1, prefs.getInt("mazeLevel", 0)));
+        maze = new Maze(MAZES[level][0], MAZES[level][1], System.nanoTime());
+        maze.layout(w, h, dp(14));
+        Bitmap paper = MazeArt.render(maze, w, h, getResources().getDisplayMetrics().density);
+        pagePaper = paper;
+        draw.loadEditable(paper, paper, false);
+        draw.setGate(mazeGate);
+        draw.setShapeAssist(false); // un camino con curvas no debe volverse figura
+        mandalaButton.setIcon(ToolButton.MARBLE);
+        mandalaButton.setChosen(false);
+        cleanNow();
+    }
+
+    private void levelUp() {
+        prefs.edit().putInt("mazeLevel", Math.min(MAZES.length - 1, prefs.getInt("mazeLevel", 0) + 1)).apply();
+    }
+
+    /** Llegó con el dedo a la meta: estrella grande y campanitas. */
+    private void mazeWon() {
+        if (maze == null) return;
+        if (draw.isDrawing()) { ui.postDelayed(this::mazeWon, 300); return; } // la estrella va cuando suelte el dedo
+        Sounds.play(Sounds.WIN);
+        draw.stamp(Stamps.make(Stamps.STAR, maze.centerX(maze.cols - 1), maze.centerY(maze.rows - 1), maze.cell * .42f));
+        levelUp();
+    }
+
+    private void endMaze() {
+        if (maze == null) return;
+        stopMarble();
+        maze = null;
+        draw.setGate(null);
+        draw.setShapeAssist(assisted);
+        mandalaButton.setIcon(ToolButton.MANDALA);
+        mandalaButton.setChosen(mandala);
+    }
+
+    /** Canica: se mueve inclinando el aparato. El botón de Mandala se vuelve "Canica" en el laberinto. */
+    private void toggleMarble() {
+        if (maze == null) return;
+        if (marble != null) { Sounds.play(Sounds.BACK); stopMarble(); return; }
+        stopStamps();
+        draw.setActive(false);
+        Sounds.play(Sounds.OPEN);
+        final Maze playing = maze;
+        marble = new MarbleView(this, maze, new MarbleView.Callback() {
+            @Override public void onBump() { Sounds.play(Sounds.WALL); }
+            @Override public void onGoal() {
+                Sounds.play(Sounds.WIN);
+                levelUp();
+                ui.postDelayed(() -> { if (maze == playing) { newMaze(); toggleMarble(); } }, 2500);
+            }
+        });
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, -1);
+        lp.bottomMargin = dp(66);
+        root.addView(marble, lp);
+        mandalaButton.setChosen(true);
+        marble.post(() -> { if (marble != null) Eink.applyView(this, marble, Eink.A2); });
+    }
+
+    private void stopMarble() {
+        if (marble == null) return;
+        root.removeView(marble);
+        marble = null;
+        if (mandalaButton != null) mandalaButton.setChosen(false);
+        draw.setActive(!overlayOpen());
+        cleanNow(); // A2 deja rastro de la canica
+    }
+
+    // ---------- Agitar para borrar ----------
+
+    private final android.hardware.SensorEventListener shakeListener = new android.hardware.SensorEventListener() {
+        @Override public void onSensorChanged(android.hardware.SensorEvent e) {
+            if (shake.feed(e.values[0], e.values[1], e.values[2], android.os.SystemClock.uptimeMillis())) ui.post(MainActivity.this::askShakeClear);
+        }
+        @Override public void onAccuracyChanged(android.hardware.Sensor s, int a) {}
+    };
+
+    /** Como el juguete de las perillas: agitar ofrece una hoja nueva (la anterior queda guardada). */
+    private void askShakeClear() {
+        if (startScreen != null || overlayOpen() || draw.isDrawing()) return;
+        Sounds.play(Sounds.ERASER);
+        draw.setActive(false);
+        LinearLayout box = new LinearLayout(this);
+        box.setGravity(Gravity.CENTER);
+        box.setBackgroundColor(Color.WHITE);
+        box.setClickable(true);
+        ToolButton yes = new ToolButton(this, ToolButton.NEW_PAGE), no = new ToolButton(this, ToolButton.BACK);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(170), dp(150));
+        lp.setMargins(dp(24), 0, dp(24), 0);
+        box.addView(yes, lp);
+        box.addView(no, new LinearLayout.LayoutParams(lp));
+        yes.setOnClickListener(v -> { closeShakeAsk(); Sounds.play(Sounds.NEW_PAGE); if (maze != null) newMaze(); else newPage(); });
+        no.setOnClickListener(v -> { Sounds.play(Sounds.BACK); closeShakeAsk(); });
+        shakeAsk = box;
+        root.addView(box, new FrameLayout.LayoutParams(-1, -1));
+        ui.postDelayed(autoCloseShake, 8000);
+        Eink.cleanRefresh(this);
+    }
+
+    private final Runnable autoCloseShake = this::closeShakeAsk;
+
+    private void closeShakeAsk() {
+        ui.removeCallbacks(autoCloseShake);
+        if (shakeAsk == null) return;
+        root.removeView(shakeAsk);
+        shakeAsk = null;
+        draw.setActive(!overlayOpen());
+        Eink.cleanRefresh(this);
+    }
+
 
     // ---------- Sellos ----------
 
@@ -791,13 +1041,40 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     // ---------- Dibujo y guardado ----------
 
     @Override public void onStrokeStarted(){
+        if(!recording.beginGroup()){
+            // Película llena: desde aquí empieza una nueva, a partir de la imagen de este momento.
+            Bitmap now=draw.snapshot();if(now!=null){recordingBase=now;}
+            recording.clear();recording.beginGroup();
+        }
         ui.removeCallbacks(autosave);history.push(draw.snapshot());
         if(undoButton!=null)undoButton.setEnabled(history.canUndo());
     }
 
+    @Override
+    public void onInk(int action, float x, float y, int pressure) {
+        if (film != null) return;
+        long now = android.os.SystemClock.uptimeMillis();
+        if (action == Lienzo.INK_DOWN) recording.begin(brush, erasing ? eraserWidth() : selectedPenWidth, erasing, now);
+        recording.point(x, y, pressure, now);
+        if (action == Lienzo.INK_UP) recording.end(now);
+        if (musicOn && !erasing && stampKind < 0 && action != Lienzo.INK_UP)
+            Musica.touch(y, draw.view().getHeight(), action == Lienzo.INK_DOWN);
+        if (maze != null && !erasing && action == Lienzo.INK_MOVE && maze.reach(inkX, inkY, x, y))
+            ui.postDelayed(this::mazeWon, 350);
+        inkX = x;
+        inkY = y;
+    }
+
+    @Override public void onInkReplaced() { recording.dropLast(); }
+    @Override public void onBlocked() { Sounds.play(Sounds.WALL); }
+
+    private float eraserWidth() { return dp(24); }
+
     private void undoStroke(){
         ensureEditableCanvas();draw.setActive(false);Bitmap previous=history.pop();
         if(previous!=null){
+            recording.undoGroup();
+            if(!recording.hasGroups()&&recordingBase!=null)recordingBase=previous.copy(Bitmap.Config.ARGB_8888,false);
             draw.loadEditable(previous,pagePaper,true);heavyChange=true;Sounds.play(Sounds.UNDO);onStrokeFinished();
         }
         draw.setActive(!overlayOpen());undoButton.setEnabled(history.canUndo());repaintBar();
@@ -848,7 +1125,8 @@ public class MainActivity extends Activity implements Lienzo.Listener {
             if (draw.isDrawing() || overlayOpen()) {
                 return;
             }
-            if (strokesSinceClean >= CLEAN_STROKES || heavyChange) cleanNow();
+            int limit = prefs.getBoolean("softClean", true) && draw instanceof XrzLienzo ? CLEAN_STROKES * 3 : CLEAN_STROKES; // cada trazo ya se limpió en su zona
+            if (strokesSinceClean >= limit || heavyChange) cleanNow();
         }
     };
 
@@ -865,6 +1143,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         saveNow();
         setCurrent(null);
         clearHistory();pagePaper=null;
+        recording=new Recording();recordingBase=null;
         draw.clear();
         cleanNow();
     }
@@ -881,7 +1160,10 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         // Los PNG antiguos se importan como tinta que puede borrarse sobre papel blanco.
         try(InputStream stream=getContentResolver().openInputStream(uri)){
             Bitmap picture=BitmapFactory.decodeStream(stream);
-            return picture==null?saved:new DrawingProjects.Page(picture,saved==null?null:saved.paper);
+            if(picture==null)return saved;
+            DrawingProjects.Page page=new DrawingProjects.Page(picture,saved==null?null:saved.paper);
+            if(saved!=null){page.recording=saved.recording;page.base=saved.base;}
+            return page;
         }catch(Exception e){return saved;}
     }
 
@@ -893,7 +1175,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
             ui.post(()->{
                 if(request!=documentRequest||currentUri!=null||draw.isDirty())return;
                 if(saved==null){setCurrent(null);return;}
-                setCurrent(uri);pagePaper=saved.paper;restorePicture(saved.picture,false);
+                setCurrent(uri);pagePaper=saved.paper;restorePicture(saved.picture,false);adoptFilm(saved);
             });
         });
     }
@@ -904,6 +1186,9 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         if(currentUri==null)setCurrent(createEntry());
         final Uri target=currentUri;final Bitmap paper=pagePaper;
         if(target==null){bmp.recycle();return;}
+        byte[] filmData=null;
+        try{if(!recording.isEmpty())filmData=recording.toBytes();}catch(Exception e){android.util.Log.w("MisDibujos","película sin guardar",e);}
+        final byte[] filmBytes=filmData;final Bitmap filmBase=recordingBase;
         draw.markSaved();
         io.execute(()->{
             Uri stored=target;
@@ -913,7 +1198,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
                     stored=fresh;ui.post(()->{if(target.equals(currentUri))setCurrent(fresh);});
                 }else stored=null;
             }
-            if(stored!=null){if(!projects.save(stored,bmp,paper))saveFailed(stored);}
+            if(stored!=null){if(!projects.save(stored,bmp,paper,filmBytes,filmBase))saveFailed(stored);}
             else saveFailed(target);
             bmp.recycle();
         });
@@ -996,7 +1281,8 @@ public class MainActivity extends Activity implements Lienzo.Listener {
             };
             photoSheet=new PhotoToDrawPanel(this,photo,draw.view().getWidth(),draw.view().getHeight(),io,new PhotoToDrawPanel.Callback(){
                 public void onUse(Bitmap page){
-                    closePhotoSheet();documentRequest++;setCurrent(null);clearHistory();pagePaper=page.copy(Bitmap.Config.ARGB_8888,false);restorePicture(page,true);draw.setActive(!overlayOpen());
+                    closePhotoSheet();documentRequest++;endMaze();setCurrent(null);clearHistory();pagePaper=page.copy(Bitmap.Config.ARGB_8888,false);restorePicture(page,true);
+                    recording=new Recording();recordingBase=null;draw.setActive(!overlayOpen());
                     Eink.apply(MainActivity.this,getWindow(),einkMode());onStrokeFinished();Eink.cleanRefresh(MainActivity.this);
                 }
                 public void onRetake(){closePhotoSheet();if(previous!=null)restorePicture(previous,false);openCamera();}
@@ -1039,7 +1325,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
             ui.post(()->{
                 if(request!=documentRequest||gallery==null)return;
                 if(saved==null){android.widget.Toast.makeText(this,"No se pudo abrir este dibujo",android.widget.Toast.LENGTH_SHORT).show();return;}
-                setCurrent(uri);pagePaper=saved.paper;clearHistory();restorePicture(saved.picture,false);closeGallery();
+                endMaze();setCurrent(uri);pagePaper=saved.paper;clearHistory();restorePicture(saved.picture,false);adoptFilm(saved);closeGallery();
             });
         });
     }
@@ -1079,7 +1365,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     }
 
     private void parentMenu() {
-        String[] items = {"Modo de pantalla", "Salir 15 minutos", "Cambiar PIN", "Fondo de descanso", "Quitar el modo kiosco para siempre", "Nombre en el saludo"};
+        String[] items = {"Modo de pantalla", "Salir 15 minutos", "Cambiar PIN", "Fondo de descanso", "Quitar el modo kiosco para siempre", "Nombre en el saludo", "Limpieza de sombras"};
         new AlertDialog.Builder(this)
                 .setTitle("Menú de papá/mamá")
                 .setItems(items, (d, which) -> {
@@ -1089,7 +1375,15 @@ public class MainActivity extends Activity implements Lienzo.Listener {
                     else if (which == 3) new AlertDialog.Builder(this).setTitle("Fondo de descanso")
                         .setSingleChoiceItems(new String[]{"Escenas cristianas que se alternan", "Negro completo"}, prefs.getBoolean("sleepBlack",false)?1:0, (dialog,choice)->{prefs.edit().putBoolean("sleepBlack",choice==1).apply();dialog.dismiss();}).show();
                     else if (which == 4) confirmRemoveKiosk();
-                    else askChildName();
+                    else if (which == 5) askChildName();
+                    else new AlertDialog.Builder(this).setTitle("Limpieza de sombras")
+                        .setSingleChoiceItems(new String[]{"Suave: se limpia solo donde dibujó (menos parpadeo)", "Clásica: refresco completo cada 12 trazos"},
+                            prefs.getBoolean("softClean", true) ? 0 : 1, (dialog, choice) -> {
+                                boolean on = choice == 0;
+                                prefs.edit().putBoolean("softClean", on).apply();
+                                draw.setSoftClean(on);
+                                dialog.dismiss();
+                            }).show();
                 })
                 .setNegativeButton("Cerrar", null)
                 .show();

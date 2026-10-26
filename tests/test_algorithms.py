@@ -86,12 +86,47 @@ public class AlgorithmChecks {
    require(m.size()==u.size()&&Math.abs(m0.x-(500+q0.x*100))<.01f&&Math.abs(m0.y-(300+q0.y*100))<.01f,"sello "+Stamps.NAMES[k]+" se coloca y escala");
   }
   for(int k:new int[]{Stamps.STAR,Stamps.HEART,Stamps.CLOUD}){List<PointF> o=Stamps.unit(k).get(0);PointF f=o.get(0),l=o.get(o.size()-1);require(Math.hypot(f.x-l.x,f.y-l.y)<.01,"contorno de "+Stamps.NAMES[k]+" cerrado");}
+  // Película
+  Recording peli=new Recording();peli.beginGroup();peli.begin(0,5,false,1000);for(int k=0;k<10;k++)peli.point(k,k,2548,1000+k*10);peli.end(1100);
+  peli.beginGroup();peli.begin(2,8,false,1500);peli.point(1,1,2548,1500);peli.point(2,2,2548,1520);peli.end(1520);
+  require(peli.strokes().size()==2&&peli.strokes().get(1).gap==400,"película: trazos y pausa");
+  peli.dropLast();peli.begin(0,5,false,1600);peli.point(5,5,2548,1600);peli.end(1600);require(peli.strokes().size()==2,"película: figura perfecta reemplaza el trazo");
+  try{Recording back=Recording.fromBytes(peli.toBytes());require(back.strokes().size()==2&&back.strokes().get(0).count==10&&back.strokes().get(0).xy[18]==9f&&back.strokes().get(0).time[9]==90,"película: se guarda y se lee igual");
+   back.undoGroup();require(back.strokes().size()==1,"película: deshacer quita la acción");back.undoGroup();require(back.isEmpty()&&!back.hasGroups(),"película: deshacer todo");}catch(java.io.IOException e){throw new AssertionError(e);}
+  peli.beginGroup();for(int k=0;k<3;k++){peli.begin(0,5,false,2000+k);peli.point(k,k,2548,2000+k);peli.end(2000+k);}peli.undoGroup();require(peli.strokes().size()==2,"película: un sello se deshace entero");
+  boolean bad=false;try{Recording.fromBytes(new byte[]{1,2,3,4,5,6,7,8});}catch(java.io.IOException e){bad=true;}require(bad,"película dañada no se acepta");
+  List<Recording.Stroke> many=new ArrayList<>();for(int k=0;k<400;k++){Recording.Stroke st=new Recording.Stroke(0,5,false);st.gap=5000;st.add(0,0,0,0);st.add(1,1,0,3000);many.add(st);}
+  float[] plan=Recording.schedule(many,25000);require(plan[400]+3000*plan[0]<=25000+1,"película larga se acelera para caber");
+  Recording full=new Recording();int rounds=0;while(full.beginGroup()&&rounds<10000){full.begin(0,5,false,rounds);for(int k=0;k<100;k++)full.point(k,k,0,rounds);full.end(rounds);rounds++;}
+  require(full.overflowed()&&full.points()>=Recording.MAX_POINTS,"película llena avisa para empezar de nuevo");
+  // Laberinto
+  for(int seed=1;seed<=30;seed++){Maze m=new Maze(4+seed%11,3+seed%4,seed);require(m.connected()==m.cols*m.rows&&m.pathLength()>0,"laberinto "+seed+" sin celdas aisladas");}
+  Maze m=new Maze(8,4,7);m.layout(800,400,10);
+  boolean agree=true;for(int c=0;c<m.cols;c++)for(int r=0;r<m.rows;r++){if(c+1<m.cols)agree&=m.crossesWall(m.centerX(c),m.centerY(r),m.centerX(c+1),m.centerY(r))==!m.open(c,r,c+1,r);if(r+1<m.rows)agree&=m.crossesWall(m.centerX(c),m.centerY(r),m.centerX(c),m.centerY(r+1))==!m.open(c,r,c,r+1);}
+  require(agree,"laberinto: las paredes bloquean y los pasos abiertos dejan pasar");
+  require(m.crossesWall(m.centerX(0),m.centerY(0),m.left-30,m.centerY(0))&&!m.crossesWall(5,5,20,8),"laberinto: no se sale por los bordes; afuera se dibuja libre");
+  // Recorrido por el camino abierto (BFS) hasta la meta: debe ganar.
+  int[][] prev=new int[m.cols*m.rows][];java.util.ArrayDeque<int[]> q=new java.util.ArrayDeque<>();q.add(new int[]{0,0});prev[0]=new int[]{-1,-1};
+  while(!q.isEmpty()){int[] a=q.poll();for(int[] d:new int[][]{{1,0},{-1,0},{0,1},{0,-1}}){int c=a[0]+d[0],r=a[1]+d[1];if(m.inside(c,r)&&prev[r*m.cols+c]==null&&m.open(a[0],a[1],c,r)){prev[r*m.cols+c]=a;q.add(new int[]{c,r});}}}
+  List<int[]> route=new ArrayList<>();int[] at={m.cols-1,m.rows-1};while(at[0]>=0){route.add(0,at);at=prev[at[1]*m.cols+at[0]];}
+  Maze cheat=new Maze(8,4,7);cheat.layout(800,400,10);require(!cheat.reach(cheat.centerX(7),cheat.centerY(2),cheat.centerX(7),cheat.centerY(3)),"laberinto: empezar cerca de la meta no cuenta");
+  boolean won=false;for(int k=1;k<route.size();k++)won|=m.reach(m.centerX(route.get(k-1)[0]),m.centerY(route.get(k-1)[1]),m.centerX(route.get(k)[0]),m.centerY(route.get(k)[1]));
+  require(won&&m.won(),"laberinto: siguiendo el camino se llega a la meta");
+  // Canica: empujada en todas direcciones nunca atraviesa una pared ni sale.
+  Random rnd=new Random(3);float bx=m.centerX(0),by=m.centerY(0),rad=m.cell*.27f;boolean safe=true;
+  for(int k=0;k<4000;k++){float[] o=m.slide(bx,by,bx+(rnd.nextFloat()-.5f)*m.cell*.6f,by+(rnd.nextFloat()-.5f)*m.cell*.6f,rad);
+   int c0=m.col(bx),r0=m.row(by),c1=m.col(o[0]),r1=m.row(o[1]);safe&=m.inside(c1,r1)&&(c0==c1&&r0==r1||m.open(c0,r0,c1,r1)||(Math.abs(c1-c0)+Math.abs(r1-r0)==2&&((m.open(c0,r0,c1,r0)&&m.open(c1,r0,c1,r1))||(m.open(c0,r0,c0,r1)&&m.open(c0,r1,c1,r1)))));bx=o[0];by=o[1];}
+  require(safe,"canica: no atraviesa paredes");
+  // Agitar
+  Shake sh=new Shake();sh.feed(0,0,9.8f,0);boolean shook=false;for(int k=1;k<=6;k++)shook|=sh.feed(k%2==0?16:-16,0,9.8f,k*150);require(shook,"agitar: tres sacudidas se reconocen");
+  Shake calm=new Shake();calm.feed(0,0,9.8f,0);boolean moved=false;for(int k=1;k<200;k++)moved|=calm.feed((float)Math.sin(k*.05)*9.8f,0,(float)Math.cos(k*.05)*9.8f,k*20);require(!moved,"agitar: girar despacio no cuenta");
+  Shake one=new Shake();one.feed(0,0,9.8f,0);boolean same=false;for(int k=1;k<=6;k++)same|=one.feed(16,0,9.8f,k*150);require(!same,"agitar: golpes del mismo lado no cuentan");
  }
 }'''
 }
 for name,content in files.items():
  p=out/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(content,encoding='utf-8')
-sources=list(out.rglob('*.java'))+[project/'src/mx/dibujos/kiosko/ShapeSnap.java',project/'src/mx/dibujos/kiosko/FunFilters.java',project/'src/mx/dibujos/kiosko/DrawingHistory.java',project/'src/mx/dibujos/kiosko/Stamps.java']
+sources=list(out.rglob('*.java'))+[project/'src/mx/dibujos/kiosko/ShapeSnap.java',project/'src/mx/dibujos/kiosko/FunFilters.java',project/'src/mx/dibujos/kiosko/DrawingHistory.java',project/'src/mx/dibujos/kiosko/Stamps.java',project/'src/mx/dibujos/kiosko/Recording.java',project/'src/mx/dibujos/kiosko/Maze.java',project/'src/mx/dibujos/kiosko/Shake.java']
 jdk=next(Path('C:/tmp/hb').glob('jdk-17*'))/'bin'
 subprocess.run([str(jdk/'javac.exe'),'-encoding','UTF-8','-d',str(out/'classes')]+[str(p) for p in sources],check=True)
 subprocess.run([str(jdk/'java.exe'),'-cp',str(out/'classes'),'mx.dibujos.kiosko.AlgorithmChecks'],check=True)

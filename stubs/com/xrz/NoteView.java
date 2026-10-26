@@ -26,4 +26,5 @@ public class NoteView extends android.view.HandwrittenView {
     public void onRestart() {}
     public void onDestroy() {}
     public int onInputTouch(int a, int b, int c, int d, int e) { return 0; }
+    public void inValidateNoteView(FlushInfo f) {}
 }

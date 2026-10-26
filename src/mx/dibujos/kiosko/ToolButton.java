@@ -18,7 +18,8 @@ public class ToolButton extends View {
     public static final int PEN_S = 0, PEN_M = 1, PEN_L = 2, ERASER = 3, UNDO = 4, NEW_PAGE = 5, GALLERY = 6, BACK = 7,
             CAMERA = 8, SHUTTER = 9, SWITCH = 10, HOME = 11, PENCIL = 12, PIANO = 13, SLEEP = 14, ROTATE = 15,
             MANDALA=16,BELL=17,ORGAN=18,FLUTE=19,STRINGS=20,FILTER_NORMAL=21,EYES=22,BALLOON=23,MIRROR=24,PIXELS=25,OUTLINE=26,LIGHTPHOTO=27,RETAKE=28,ASSISTED=29,FREE=30,LAMP=31,
-            TIP_PEN=32,TIP_PENCIL=33,TIP_BRUSH=34,TIP_DASH=35,STAMP=36,STAMP_FIRST=37;
+            TIP_PEN=32,TIP_PENCIL=33,TIP_BRUSH=34,TIP_DASH=35,STAMP=36,STAMP_FIRST=37,
+            FILM=46,MUSIC=47,MARBLE=48;
     /** Punta de cada tipo de Lienzo.BRUSH_*, en orden. */
     public static final int[] TIPS={TIP_PEN,TIP_PENCIL,TIP_BRUSH,TIP_DASH};
 
@@ -29,7 +30,8 @@ public class ToolButton extends View {
     public void setBare(boolean value) { bare=value; invalidate(); }
     private static final String[] LABELS={"Fino","Medio","Grueso","Goma","Deshacer","Nueva","Dibujos","Volver","Fotos","Tomar foto","Cámara","Inicio","Dibujar","Piano","Dormir","Rotar","Mandala","Campanas","Órgano","Flauta","Cuerdas","Normal","Ojotes","Globo","Espejo","Invertido","Contornos","Foto clara","Otra foto","Asistido","Libre","Linterna",
         "Lápiz","Grafito","Pincel","Puntos","Sellos",
-        "Estrella","Corazón","Flor","Sol","Nube","Casita","Gato","Pez","Mariposa"}; // los sellos, en el orden de Stamps
+        "Estrella","Corazón","Flor","Sol","Nube","Casita","Gato","Pez","Mariposa", // los sellos, en el orden de Stamps
+        "Película","Música","Canica"};
     private final Paint p = new Paint();
     private final RectF r = new RectF();
     private final Path path = new Path();
@@ -94,8 +96,31 @@ public class ToolButton extends View {
 
         if(label){p.setStyle(Paint.Style.FILL);p.setColor(fg);p.setTextAlign(Paint.Align.CENTER);p.setTypeface(android.graphics.Typeface.create("sans-serif-medium",0));p.setTextSize(10*density);c.drawText(LABELS[icon],cx,h-8*density,p);}
         p.setColor(fg);
-        if(icon>=STAMP_FIRST){drawStamp(c,icon-STAMP_FIRST,cx,cy,u*3.3f,u*.4f);return;}
+        if(icon>=STAMP_FIRST&&icon<STAMP_FIRST+Stamps.COUNT){drawStamp(c,icon-STAMP_FIRST,cx,cy,u*3.3f,u*.4f);return;}
         switch (icon) {
+            case FILM: {
+                // Claqueta: tablero con triángulo de "reproducir".
+                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(u*.45f);
+                r.set(cx-u*3,cy-u*1.4f,cx+u*3,cy+u*2.6f);c.drawRoundRect(r,u*.4f,u*.4f,p);
+                path.reset();path.moveTo(cx-u*3,cy-u*1.4f);path.lineTo(cx-u*2.6f,cy-u*3);path.lineTo(cx+u*3.2f,cy-u*2.2f);path.lineTo(cx+u*3,cy-u*1.4f);c.drawPath(path,p);
+                p.setStyle(Paint.Style.FILL);path.reset();path.moveTo(cx-u*.8f,cy-u*.4f);path.lineTo(cx+u*1.4f,cy+u*.6f);path.lineTo(cx-u*.8f,cy+u*1.6f);path.close();c.drawPath(path,p);break;
+            }
+            case MUSIC: {
+                // Dos corcheas unidas; rellenas si la música está prendida.
+                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(u*.5f);
+                c.drawLine(cx-u*1.2f,cy+u*1.8f,cx-u*1.2f,cy-u*2.4f,p);c.drawLine(cx+u*2,cy+u*1.2f,cx+u*2,cy-u*3,p);
+                p.setStrokeWidth(u*.9f);c.drawLine(cx-u*1.2f,cy-u*2.4f,cx+u*2,cy-u*3,p);
+                p.setStyle(selected?Paint.Style.FILL:Paint.Style.STROKE);p.setStrokeWidth(u*.45f);
+                r.set(cx-u*3,cy+u*.9f,cx-u*1.1f,cy+u*2.6f);c.drawOval(r,p);r.set(cx+u*.2f,cy+u*.3f,cx+u*2.1f,cy+u*2);c.drawOval(r,p);break;
+            }
+            case MARBLE: {
+                // Canica en un pedacito de laberinto.
+                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(u*.45f);
+                c.drawLine(cx-u*3.2f,cy-u*2.6f,cx+u*3.2f,cy-u*2.6f,p);c.drawLine(cx-u*3.2f,cy-u*2.6f,cx-u*3.2f,cy+u*2.6f,p);
+                c.drawLine(cx+u*.6f,cy+u*2.6f,cx+u*3.2f,cy+u*2.6f,p);c.drawLine(cx+u*3.2f,cy-u*.4f,cx+u*3.2f,cy+u*2.6f,p);
+                p.setStyle(Paint.Style.FILL);c.drawCircle(cx-u*.6f,cy+u*.4f,u*1.5f,p);
+                p.setColor(dark?Color.BLACK:Color.WHITE);c.drawCircle(cx-u*1.1f,cy-u*.1f,u*.35f,p);break;
+            }
             case STAMP: {
                 // Un sello de goma: mango, base y la estrellita que deja.
                 p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(u*.45f);

@@ -89,6 +89,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     private View filmShield;
     private Maze maze;
     private MarbleView marble;
+    private int marbleSession;
     private final Shake shake = new Shake();
     private android.hardware.SensorManager sensors;
     private View shakeAsk;
@@ -871,13 +872,18 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         draw.setActive(false);
         Sounds.play(Sounds.OPEN);
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        // El firmware ignora KEEP_SCREEN_ON: ampliar solo durante la partida. onPause/stop y
+        // setupKiosk al arrancar restauran siempre el minuto habitual, incluso tras una caída.
+        marbleTimeout(true);
         final Maze playing = maze;
+        final int session=++marbleSession;
         marble = new MarbleView(this, maze, new MarbleView.Callback() {
             @Override public void onBump() { Sounds.play(Sounds.WALL); }
+            @Override public void onIdle() { stopMarble(); }
             @Override public void onGoal() {
                 Sounds.play(Sounds.WIN);
                 levelUp();
-                ui.postDelayed(() -> { if (maze == playing) { newMaze(); toggleMarble(); } }, 2500);
+                ui.postDelayed(() -> { if (maze == playing && marble != null && marbleSession == session) { newMaze(); toggleMarble(); } }, 2500);
             }
         });
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, -1);
@@ -887,11 +893,18 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         marble.post(() -> { if (marble != null) Eink.applyView(this, marble, Eink.A2); });
     }
 
+    private void marbleTimeout(boolean playing){
+        if(!isOwner())return;
+        try{dpm.setSystemSetting(admin,android.provider.Settings.System.SCREEN_OFF_TIMEOUT,playing?"1800000":"60000");}
+        catch(RuntimeException ignored){}
+    }
+
     private void stopMarble() {
         if (marble == null) return;
         root.removeView(marble);
-        marble = null;
+        marble = null;marbleSession++;
         getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        marbleTimeout(false);
         if (mandalaButton != null) mandalaButton.setChosen(false);
         draw.setActive(!overlayOpen());
         cleanNow(); // A2 deja rastro de la canica

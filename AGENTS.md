@@ -301,3 +301,10 @@ Herramientas: JADX 1.5.6 en `C:\tmp\hb\jadx` (oficial, sha256 545ea2be…); cód
 - El estado obsoleto de UID reapareció tras reinstalar el APK y no se resolvió con am force-stop
   (la app está protegida por ser device owner). Reiniciar el HiBreak después de la actualización
   restaura TOP / active; considerar este detalle del firmware en futuras instalaciones.
+
+- La prueba de más de 60 s mostró que el firmware ignora KEEP_SCREEN_ON incluso estando
+  mHoldScreenWindow activo. Durante Canica se amplía SCREEN_OFF_TIMEOUT a 30 min mediante la
+  misma API de device owner ya usada por setupKiosk; stopMarble/onPause restablecen 60 s y
+  setupKiosk lo restablece al arrancar. Tras 3 min sin mover la canica, inclinar ni tocar,
+  MarbleView llama onIdle y sale de la partida, recuperando el reposo habitual. El botón físico
+  de bloqueo sigue funcionando. No cambiar permanentemente el descanso del resto de la app.

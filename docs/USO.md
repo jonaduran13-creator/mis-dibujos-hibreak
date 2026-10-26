@@ -20,7 +20,8 @@ La actualización conserva la firma y el modo kiosco. No requiere internet.
   el trazo se detiene y suena suave. El botón Canica (en lugar de Mandala) pone una canica que se
   mueve inclinando el aparato. También puedes entrar directamente en **Juegos → Canica** desde
   el inicio: sostén el aparato con la pantalla hacia arriba e inclínalo suavemente. Al ganar sale una estrella y el siguiente laberinto es más grande
-  (5 niveles). Nueva hace otro laberinto; Inicio sale.
+  (5 niveles). Nueva hace otro laberinto; Inicio sale. Canica mantiene la partida despierta;
+  después de tres minutos sin movimiento vuelve al reposo habitual.
 - Sellos: abre una tira con nueve dibujitos. Elige uno y toca la hoja para ponerlo; si
   arrastras el dedo antes de soltar, sale más grande (se ve su contorno punteado). Usa la
   punta elegida, funciona en Mandala (sale 12 veces) y Deshacer lo quita entero. Para volver

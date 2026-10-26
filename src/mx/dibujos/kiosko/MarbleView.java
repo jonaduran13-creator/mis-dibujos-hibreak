@@ -23,6 +23,7 @@ final class MarbleView extends View implements SensorEventListener {
     interface Callback {
         void onBump();
         void onGoal();
+        void onIdle();
     }
 
     private static final long TICK = 40; // ~25 cuadros por segundo: lo que A2 alcanza a mostrar
@@ -37,6 +38,8 @@ final class MarbleView extends View implements SensorEventListener {
     private int samples;
     private long last;
     private long lastBump;
+    private long lastActivity;
+    private float activityX,activityY;
     private boolean goal;
 
     MarbleView(Context c, Maze maze, Callback cb) {
@@ -61,7 +64,7 @@ final class MarbleView extends View implements SensorEventListener {
         setContentDescription(registered?"Canica: inclina suavemente para mover":"No se pudo activar el sensor de movimiento");
         android.util.Log.i("MisDibujosCanica","Acelerómetro activo="+registered);
         sensorTime=0;samples=0;
-        last = SystemClock.uptimeMillis();
+        last = SystemClock.uptimeMillis();lastActivity=last;
         post(step);
     }
 
@@ -80,6 +83,9 @@ final class MarbleView extends View implements SensorEventListener {
         int rot=getDisplay()==null?Surface.ROTATION_90:getDisplay().getRotation();
         tilt.update(e.values[0],e.values[1],rot,seconds);
         gx=tilt.x();gy=tilt.y();
+        if(Math.abs(gx-activityX)+Math.abs(gy-activityY)>.8f){
+            lastActivity=SystemClock.uptimeMillis();activityX=gx;activityY=gy;
+        }
         if(++samples==1||samples==100||samples==250)
             android.util.Log.i("MisDibujosCanica","Inclinación="+gx+","+gy+" posición="+x+","+y);
 
@@ -93,6 +99,7 @@ final class MarbleView extends View implements SensorEventListener {
             long now = SystemClock.uptimeMillis();
             float dt = Math.min(.08f, (now - last) / 1000f);
             last = now;
+            if(now-lastActivity>180_000){cb.onIdle();return;} // sin movimiento durante 3 min: vuelve al descanso normal
             // Inclinar poco no mueve (la mano tiembla); luego acelera según la inclinación.
             float k = maze.cell * 2.2f;
             float ax = Math.abs(gx) < .4f ? 0 : gx, ay = Math.abs(gy) < .4f ? 0 : gy;
@@ -111,6 +118,7 @@ final class MarbleView extends View implements SensorEventListener {
             y = m[1];
             if (!goal && maze.col(x) == maze.cols - 1 && maze.row(y) == maze.rows - 1) { goal = true; cb.onGoal(); }
             if (Math.abs(x - ox) > .5f || Math.abs(y - oy) > .5f) {
+                lastActivity=now;
                 int pad = (int) (r + 3);
                 dirty.set((int) Math.min(ox, x) - pad, (int) Math.min(oy, y) - pad, (int) Math.max(ox, x) + pad, (int) Math.max(oy, y) + pad);
                 invalidate(dirty);
@@ -129,5 +137,5 @@ final class MarbleView extends View implements SensorEventListener {
     }
 
     @Override
-    public boolean onTouchEvent(MotionEvent e) { return true; } // con la canica no se dibuja
+    public boolean onTouchEvent(MotionEvent e) { lastActivity=SystemClock.uptimeMillis();return true; } // con la canica no se dibuja
 }

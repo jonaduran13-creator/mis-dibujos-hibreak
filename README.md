@@ -26,6 +26,8 @@ engine for near real-time finger drawing. Spanish UI.*
 - Sonidos de campanita sintetizados (sin archivos de audio).
 - Al dormirse muestra una ilustración de descanso (o negro); se duerme solo tras 1 minuto.
 - Nivel de batería en la pantalla de inicio (el kiosco oculta la barra de estado).
+- **Linterna** (flash LED trasero) en el inicio y en el piano; se apaga sola a los 5 minutos,
+  al dormir el aparato y al abrir la cámara.
 - Todo se guarda en el aparato: `Pictures/Dibujos` (PNG) y `Pictures/Fotos` (JPG).
 - Menú de papá/mamá con PIN (mantener 5 s el saludo): modo de pantalla, salir 15 minutos,
   cambiar PIN, fondo de descanso, nombre del niño en el saludo, quitar el kiosco.

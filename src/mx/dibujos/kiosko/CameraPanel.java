@@ -142,6 +142,7 @@ public class CameraPanel extends FrameLayout implements TextureView.SurfaceTextu
     }
 
     private void open(){
+        Linterna.get(getContext()).set(false); // la cámara necesita el flash
         if(bg==null||paused||detached||!texture.isAvailable())return;
         final boolean requestedFront=front;final SurfaceTexture surface=texture.getSurfaceTexture();
         final int displayDegrees=getDisplay()==null?90:getDisplay().getRotation()*90;

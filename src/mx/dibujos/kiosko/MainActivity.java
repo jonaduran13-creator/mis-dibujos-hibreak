@@ -130,7 +130,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
     private final android.content.BroadcastReceiver screenReceiver = new android.content.BroadcastReceiver() {
         @Override
         public void onReceive(android.content.Context c, Intent i) {
-            if (Intent.ACTION_SCREEN_OFF.equals(i.getAction())) showBlackout();
+            if (Intent.ACTION_SCREEN_OFF.equals(i.getAction())) { Linterna.get(c).set(false); showBlackout(); }
             else hideBlackout();
         }
     };
@@ -392,6 +392,7 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         TextView invitation = new TextView(this);
         invitation.setText("¿Qué vamos a crear hoy?"); invitation.setTextColor(Color.BLACK); invitation.setTextSize(18);
         invitation.setPadding(dp(24),0,0,dp(4));welcome.addView(invitation);
+        header.addView(Linterna.button(this), new LinearLayout.LayoutParams(dp(72), dp(56)));
         header.addView(new BatteryView(this)); // el kiosco oculta la barra de estado: aquí se ve la batería
         screen.addView(header);
         int[] icons={ToolButton.PENCIL,ToolButton.CAMERA,ToolButton.PIANO};

@@ -184,3 +184,9 @@ Dibujos: `Pictures/Dibujos/*.png`. Fotos: `Pictures/Fotos/*.jpg` (MediaStore).
 - `tools/comun.ps1` NUNCA elige solo un aparato por Wi-Fi (una vez instaló la app en una tele de la
   casa); si pasa, `--ez quitarAdmin true` (solo adb, solo si no es dueña) le quita el permiso de
   administrador para poder desinstalarla.
+
+## Versión 2.1 (versionCode 36) — linterna
+
+- `Linterna`: `CameraManager.setTorchMode` sobre el flash trasero (no requiere permiso de cámara). Botón en el
+  inicio y en el piano (`Linterna.button`). Se sincroniza con `TorchCallback`; se apaga a los 5 min, en
+  `ACTION_SCREEN_OFF` y antes de abrir la cámara (`CameraPanel.open`).

@@ -26,6 +26,7 @@ final class PianoMode extends LinearLayout {
         addView(header);
         TextView hint = text("Toca y descubre los sonidos", 17); hint.setGravity(Gravity.CENTER);
         hint.setPadding(dp(8),0,0,0); header.addView(hint);
+        header.addView(Linterna.button(a), new LayoutParams(dp(72), dp(56)));
         LinearLayout sounds = new LinearLayout(a);
         String[] names = {"Piano", "Campanas", "Órgano", "Flauta", "Cuerdas"};
         int[] icons={ToolButton.PIANO,ToolButton.BELL,ToolButton.ORGAN,ToolButton.FLUTE,ToolButton.STRINGS};

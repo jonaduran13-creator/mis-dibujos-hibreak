@@ -17,14 +17,14 @@ public class ToolButton extends View {
 
     public static final int PEN_S = 0, PEN_M = 1, PEN_L = 2, ERASER = 3, UNDO = 4, NEW_PAGE = 5, GALLERY = 6, BACK = 7,
             CAMERA = 8, SHUTTER = 9, SWITCH = 10, HOME = 11, PENCIL = 12, PIANO = 13, SLEEP = 14, ROTATE = 15,
-            MANDALA=16,BELL=17,ORGAN=18,FLUTE=19,STRINGS=20,FILTER_NORMAL=21,EYES=22,BALLOON=23,MIRROR=24,PIXELS=25,OUTLINE=26,LIGHTPHOTO=27,RETAKE=28,ASSISTED=29,FREE=30;
+            MANDALA=16,BELL=17,ORGAN=18,FLUTE=19,STRINGS=20,FILTER_NORMAL=21,EYES=22,BALLOON=23,MIRROR=24,PIXELS=25,OUTLINE=26,LIGHTPHOTO=27,RETAKE=28,ASSISTED=29,FREE=30,LAMP=31;
 
     private int icon;
     public void setIcon(int value){icon=value;setContentDescription(LABELS[icon]);invalidate();}
     private boolean selected;
     private boolean bare;
     public void setBare(boolean value) { bare=value; invalidate(); }
-    private static final String[] LABELS={"Fino","Medio","Grueso","Goma","Deshacer","Nueva","Dibujos","Volver","Fotos","Tomar foto","Cámara","Inicio","Dibujar","Piano","Dormir","Rotar","Mandala","Campanas","Órgano","Flauta","Cuerdas","Normal","Ojotes","Globo","Espejo","Invertido","Contornos","Foto clara","Otra foto","Asistido","Libre"};
+    private static final String[] LABELS={"Fino","Medio","Grueso","Goma","Deshacer","Nueva","Dibujos","Volver","Fotos","Tomar foto","Cámara","Inicio","Dibujar","Piano","Dormir","Rotar","Mandala","Campanas","Órgano","Flauta","Cuerdas","Normal","Ojotes","Globo","Espejo","Invertido","Contornos","Foto clara","Otra foto","Asistido","Libre","Linterna"};
     private final Paint p = new Paint();
     private final RectF r = new RectF();
     private final Path path = new Path();
@@ -99,6 +99,17 @@ public class ToolButton extends View {
                 path.cubicTo(cx-u*2.8f,cy-u*3.2f,cx-u*.7f,cy-u*3,cx-u*.6f,cy);
                 path.cubicTo(cx-u*.5f,cy+u*3.5f,cx+u*1.3f,cy+u*1.5f,cx+u*1.2f,cy-u*.2f);
                 path.cubicTo(cx+u,cy-u*2,cx+u*3.3f,cy-u*2,cx+u*3,cy+u*1.5f);c.drawPath(path,p);break;
+            }
+            case LAMP: {
+                // Linterna acostada: mango, cabeza más ancha y rayos de luz (rellenos si está prendida).
+                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(u*.45f);
+                r.set(cx-u*3.2f,cy-u*.8f,cx-u*.4f,cy+u*.8f);c.drawRoundRect(r,u*.3f,u*.3f,p);
+                path.reset();path.moveTo(cx-u*.4f,cy-u*.8f);path.lineTo(cx+u*.8f,cy-u*1.5f);path.lineTo(cx+u*.8f,cy+u*1.5f);
+                path.lineTo(cx-u*.4f,cy+u*.8f);path.close();
+                if(selected){p.setStyle(Paint.Style.FILL);c.drawPath(path,p);p.setStyle(Paint.Style.STROKE);}else c.drawPath(path,p);
+                c.drawLine(cx+u*1.7f,cy,cx+u*3.2f,cy,p);
+                c.drawLine(cx+u*1.5f,cy-u*1.4f,cx+u*2.8f,cy-u*2.4f,p);
+                c.drawLine(cx+u*1.5f,cy+u*1.4f,cx+u*2.8f,cy+u*2.4f,p);break;
             }
             case MANDALA: {
                 p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(u*.4f);

@@ -238,7 +238,8 @@ public class MainActivity extends Activity implements Lienzo.Listener {
         if (i.hasExtra("testPath") && draw instanceof XrzLienzo) {
             final float[] s = i.getFloatArrayExtra("testPath");
             final boolean hold = i.getBooleanExtra("testHold", false);
-            if (s != null && s.length >= 4) ui.postDelayed(() -> ((XrzLienzo) draw).testPath(s, hold), 800);
+            int wait = i.getIntExtra("testDelay", 800); // ms antes de dibujar (p. ej. justo tras deshacer)
+            if (s != null && s.length >= 4) ui.postDelayed(() -> ((XrzLienzo) draw).testPath(s, hold), wait);
         }
         if (i.hasExtra("testScreen")) {
             if (i.getBooleanExtra("testScreen", false)) hideBlackout(); else showBlackout();

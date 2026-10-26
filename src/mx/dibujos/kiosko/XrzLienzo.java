@@ -104,6 +104,7 @@ public class XrzLienzo implements Lienzo {
         generation++;
         note.clear(true);
         note.setBackground(blank(), true);
+        shortenInputBlock();
         dirty = false;
         if (listener != null) listener.onRedrawn();
     }
@@ -149,6 +150,35 @@ public class XrzLienzo implements Lienzo {
     private void applyLayers(Bitmap ink, Bitmap paper) {
         note.setForegroundAndBackgroundTogether(fit(ink, Color.TRANSPARENT),
                 paper == null ? blank() : fit(paper, Color.WHITE), true);
+        shortenInputBlock();
+    }
+
+    private static final long INPUT_BLOCK_MS = 250;
+    private static java.lang.reflect.Field busyField;
+    private static boolean busyFieldTried;
+
+    /**
+     * Tras pintar un fondo, NoteView ignora los toques durante 1 s (campo mLastUpdateBgTime,
+     * visto al decompilar handwritten.jar). Pasa en cada Deshacer, hoja nueva o al reabrir:
+     * el niño perdía el inicio del siguiente trazo. El fondo ya está pintado cuando la llamada
+     * regresa, así que se deja un margen corto (250 ms) en lugar del segundo completo.
+     */
+    private void shortenInputBlock() {
+        try {
+            if (!busyFieldTried) {
+                busyFieldTried = true;
+                busyField = NoteView.class.getDeclaredField("mLastUpdateBgTime");
+                busyField.setAccessible(true);
+            }
+            if (busyField == null) return;
+            long set = busyField.getLong(note);
+            if (set == 0) return;
+            long earliest = android.os.SystemClock.uptimeMillis() - 1000 + INPUT_BLOCK_MS;
+            if (set > earliest) busyField.setLong(note, earliest);
+        } catch (Throwable t) {
+            busyField = null;
+            Log.w(TAG, "No se pudo acortar el bloqueo de toques del motor", t);
+        }
     }
 
     /** Deja solo lo que el niño dibujó: transparente donde la imagen coincide con el papel (o es blanco). */
@@ -185,6 +215,7 @@ public class XrzLienzo implements Lienzo {
             return;
         }
         note.setBackground(fit(b), true);
+        shortenInputBlock();
         Log.i(TAG, "fondo " + b.getWidth() + "x" + b.getHeight());
     }
 
@@ -262,6 +293,7 @@ public class XrzLienzo implements Lienzo {
                 applyLayers(pendingInk, pendingBackground);
             } else if (pendingBackground != null) {
                 note.setBackground(fit(pendingBackground), true);
+                shortenInputBlock();
             }
         } catch (RuntimeException e) {
             Log.w(TAG, "el motor de Bigme aún no está listo", e);

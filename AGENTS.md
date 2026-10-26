@@ -190,3 +190,26 @@ Dibujos: `Pictures/Dibujos/*.png`. Fotos: `Pictures/Fotos/*.jpg` (MediaStore).
 - `Linterna`: `CameraManager.setTorchMode` sobre el flash trasero (no requiere permiso de cámara). Botón en el
   inicio y en el piano (`Linterna.button`). Se sincroniza con `TorchCallback`; se apaga a los 5 min, en
   `ACTION_SCREEN_OFF` y antes de abrir la cámara (`CameraPanel.open`).
+
+## Versión 2.2 (versionCode 37) — lo aprendido al decompilar Bigme (JADX + dexdump)
+
+Herramientas: JADX 1.5.6 en `C:\tmp\hb\jadx` (oficial, sha256 545ea2be…); código decompilado de
+`handwritten.jar`, `xrz.framework.server.jar` y `DisplayPowerController` en `C:\tmp\hb\sys\out-*`.
+
+- **Motor de escritura (`com.xrz.NoteView`)**: `onInputTouch` mete el punto en una cola; el hilo
+  `OverlayThreadLoop` lo pinta y llama `Handwritten.inValidate(rect, modo)`, que pide el envío al
+  servicio nativo `handwrittenservice` (agrupa rectángulos; solo espera si se mezclan modos con un envío
+  pendiente). `DrawThreadLoop` copia a la ventana normal cada 100–150 ms (solo afecta capturas). Modos:
+  HANDWRITTEN=1029, RUBBER=1030, GU16 rect=1156, GC16 rect=1028. El camino ya es eficiente.
+- **Bloqueo de 1 s tras un fondo**: `drawContent` guarda `mLastUpdateBgTime` y `onInputTouch` ignora
+  toques 1 s ("Is busy for showing"). Pasaba en cada Deshacer, hoja nueva, reabrir o foto.
+  `XrzLienzo.shortenInputBlock()` lo recorta a 250 ms por reflexión tras cada `setBackground` /
+  `setForegroundAndBackgroundTogether`. Probado: trazo dibujado justo después de Deshacer, 0 avisos.
+- **Caída del sistema al despertar** (`DisplayPowerController.hideBackLogo`): si `onPrepareSuspendLogo`
+  falla o devuelve null (p. ej. la app se está actualizando), Bigme no pone imagen pero queda
+  `isLogoShow=true` y al despertar hace `removeView` de una vista vieja que nunca limpia → excepción en
+  system_server. Defensa: `SleepLogo` deja la imagen preparada, nunca falla ni devuelve null, y
+  `build.ps1 -Install` reabre la app al terminar para que vuelva a registrarse.
+- **Recommit** (`NoteView.enableRecommitMode(delay, modo)` → repinta zonas con un modo limpio) existe pero
+  ni la app de imágenes de Bigme lo usa; no se activó porque su efecto solo se ve en la tinta física.
+- `--ei testDelay N` (solo adb): espera antes de `testPath`, para probar trazos justo tras una acción.

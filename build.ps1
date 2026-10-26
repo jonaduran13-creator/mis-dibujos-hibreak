@@ -52,4 +52,7 @@ if ($Install) {
     # Android conserva la lista anterior de políticas al actualizar un device owner.
     & $Adb @device shell dpm set-active-admin mx.dibujos.kiosko/.AdminReceiver
     if ($LASTEXITCODE) { throw "No se pudo actualizar el permiso de descanso" }
+    # La actualización cierra la app; se reabre de inmediato para que vuelva a registrar la imagen
+    # de reposo. Si el aparato se durmiera sin ella, el sistema de Bigme se cae al despertar.
+    & $Adb @device shell am start -n mx.dibujos.kiosko/.MainActivity | Out-Null
 }
